@@ -335,7 +335,7 @@ class _TagChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: _primary.withOpacity(0.1),
+        color: _primary.withAlpha((0.1 * 255).round()),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -387,7 +387,7 @@ class _BottomArea extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 8),
         decoration: BoxDecoration(
-          color: _backgroundLight.withOpacity(0.9),
+          color: _backgroundLight.withAlpha((0.9 * 255).round()),
           boxShadow: const [
             BoxShadow(
               blurRadius: 6,
@@ -428,12 +428,14 @@ class _BottomArea extends StatelessWidget {
                   // TODO: من هنا تفتح شاشة التقييم
                 },
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: _primary.withOpacity(0.6)),
+                  side: BorderSide(
+                    color: _primary.withAlpha((0.6 * 255).round()),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  backgroundColor: _primary.withOpacity(0.08),
+                  backgroundColor: _primary.withAlpha((0.08 * 255).round()),
                 ),
                 icon: const Icon(Icons.star_border, color: _primary),
                 label: const Text(

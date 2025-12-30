@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dish_details_page.dart';
+import 'cooker_details.dart';
 import 'userinterface.dart'; // <--- J'ai ajouté l'import ici !
+import 'messages.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -84,7 +86,7 @@ class _HeaderWithSearch extends StatelessWidget {
                       Text(
                         'تونس، تونس',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withAlpha((0.8 * 255).round()),
                           fontSize: 14,
                         ),
                       ),
@@ -94,7 +96,7 @@ class _HeaderWithSearch extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withAlpha((0.3 * 255).round()),
                     shape: BoxShape.circle,
                   ),
                   child: const Text('👋', style: TextStyle(fontSize: 24)),
@@ -185,7 +187,7 @@ class _CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = selected
-        ? HomePage.primary.withOpacity(0.2)
+        ? HomePage.primary.withAlpha((0.2 * 255).round())
         : const Color(0xFFE5E5E5);
     final textColor = selected ? HomePage.primary : const Color(0xFF374151);
 
@@ -491,94 +493,111 @@ class _CookCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(blurRadius: 6, color: Colors.black12, offset: Offset(0, 2)),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Image.asset(
-              cook.imageAsset,
-              width: 56,
-              height: 56,
-              fit: BoxFit.cover,
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CookerDetailsPage()),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              blurRadius: 6,
+              color: Colors.black12,
+              offset: Offset(0, 2),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      cook.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                        const SizedBox(width: 2),
-                        Text(
-                          cook.rating.toStringAsFixed(1),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: Image.asset(
+                cook.imageAsset,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        cook.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      cook.location,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  children: cook.tags
-                      .map(
-                        (t) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                          const SizedBox(width: 2),
+                          Text(
+                            cook.rating.toStringAsFixed(1),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
-                          decoration: BoxDecoration(
-                            color: HomePage.primary.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            t,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              color: HomePage.primary,
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        cook.location,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: cook.tags
+                        .map(
+                          (t) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: HomePage.primary.withAlpha(
+                                (0.12 * 255).round(),
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              t,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: HomePage.primary,
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -587,7 +606,7 @@ class _CookCard extends StatelessWidget {
 /* -------------------------- BOTTOM NAVIGATION -------------------------- */
 
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({super.key});
+  const _BottomNavBar();
 
   @override
   Widget build(BuildContext context) {
@@ -597,13 +616,22 @@ class _BottomNavBar extends StatelessWidget {
       selectedItemColor: HomePage.primary,
       unselectedItemColor: Colors.grey,
       onTap: (index) {
+        // Si on clique sur l'icône "Messages" (index 2)
+        if (index == 2) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MessagesPage()),
+          );
+          return;
+        }
+
         // Si on clique sur l'icône "Profile" (index 3)
         if (index == 3) {
-           Navigator.push(
-             context,
-             // CORRECTION ICI : On appelle UserInterfacePage
-             MaterialPageRoute(builder: (context) => const UserInterfacePage()),
-           );
+          Navigator.push(
+            context,
+            // CORRECTION ICI : On appelle UserInterfacePage
+            MaterialPageRoute(builder: (context) => const UserInterfacePage()),
+          );
         }
       },
       items: const [
