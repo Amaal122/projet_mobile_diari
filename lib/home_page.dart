@@ -1,13 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dish_details_page.dart';
-<<<<<<< HEAD
-import 'userinterface.dart'; 
+import 'userinterface.dart';
 import 'category_page.dart';
-=======
 import 'cooker_details.dart';
-import 'userinterface.dart'; // <--- J'ai ajouté l'import ici !
 import 'messages.dart';
->>>>>>> 0c40570bdace8ac85295c84d4e00a512378c23ca
+import 'dish_details_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -143,8 +139,6 @@ class _HeaderWithSearch extends StatelessWidget {
 
 /* ------------------------------ CATEGORIES ----------------------------- */
 
-/* ------------------------------ CATEGORIES ----------------------------- */
-
 class _CategoriesSection extends StatelessWidget {
   const _CategoriesSection();
 
@@ -191,10 +185,8 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-<<<<<<< HEAD
     return GestureDetector(
       onTap: () {
-        // Navigation vers la page de catégorie
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -202,26 +194,6 @@ class _CategoryChip extends StatelessWidget {
               categoryName: label,
               categoryEmoji: emoji,
             ),
-=======
-    final bg = selected
-        ? HomePage.primary.withAlpha((0.2 * 255).round())
-        : const Color(0xFFE5E5E5);
-    final textColor = selected ? HomePage.primary : const Color(0xFF374151);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        children: [
-          Text(emoji),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
->>>>>>> 0c40570bdace8ac85295c84d4e00a512378c23ca
           ),
         );
       },
@@ -654,7 +626,6 @@ class _BottomNavBar extends StatelessWidget {
       selectedItemColor: HomePage.primary,
       unselectedItemColor: Colors.grey,
       onTap: (index) {
-        // Si on clique sur l'icône "Messages" (index 2)
         if (index == 2) {
           Navigator.push(
             context,
@@ -663,11 +634,9 @@ class _BottomNavBar extends StatelessWidget {
           return;
         }
 
-        // Si on clique sur l'icône "Profile" (index 3)
         if (index == 3) {
           Navigator.push(
             context,
-            // CORRECTION ICI : On appelle UserInterfacePage
             MaterialPageRoute(builder: (context) => const UserInterfacePage()),
           );
         }
