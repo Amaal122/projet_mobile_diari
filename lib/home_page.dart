@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dish_details_page.dart';
+import 'userinterface.dart'; // <--- J'ai ajouté l'import ici !
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -311,23 +312,10 @@ class _DishCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // توّا أي طبق تنقّر عليه يمشي لصفحة التفاصيل
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const DishDetailsPage()),
         );
-
-        // لو تحب غير الكسكسي يمشي للتفاصيل، استعمل هذا بدل الكود فوق:
-        /*
-        if (dish.name == 'كسكسي بالخضار') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const DishDetailsPage(),
-            ),
-          );
-        }
-        */
       },
       child: SizedBox(
         width: 220,
@@ -609,7 +597,14 @@ class _BottomNavBar extends StatelessWidget {
       selectedItemColor: HomePage.primary,
       unselectedItemColor: Colors.grey,
       onTap: (index) {
-        // TODO: navigation later (طلبات / رسائل / حساب)
+        // Si on clique sur l'icône "Profile" (index 3)
+        if (index == 3) {
+           Navigator.push(
+             context,
+             // CORRECTION ICI : On appelle UserInterfacePage
+             MaterialPageRoute(builder: (context) => const UserInterfacePage()),
+           );
+        }
       },
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
