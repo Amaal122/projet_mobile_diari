@@ -186,6 +186,19 @@ class CategoryPage extends StatelessWidget {
           preparationTime: 'متوفر مع نصف النهار',
           tags: ['تقليدي', 'تونسي'],
         ),
+        DishData(
+          name: 'نواصر بالدجاج',
+          cookName: 'أمينة',
+          cookImage: 'lib/assets/images/sarra.jpg',
+          rating: 4.9,
+          price: '12.50',
+          location: 'المرسى',
+          imageAsset: 'lib/assets/images/nwaser.jpg',
+          description: 'نواصر تونسية بالدجاج و الخضرة',
+          ingredients: ['نواصر', 'دجاج', 'ثوم', 'هريسة', 'بهارات'],
+          preparationTime: 'متوفر مع نصف النهار',
+          tags: ['تقليدي', 'تونسي'],
+        ),
       ],
       'حلويات': [
         DishData(
