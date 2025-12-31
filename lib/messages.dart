@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'models/cooker.dart';
 import 'cooker_messages.dart';
 
 class MessagesPage extends StatelessWidget {
@@ -48,13 +49,18 @@ class MessagesPage extends StatelessWidget {
             return _ConversationTile(
               conversation: c,
               onTap: () {
+                final cooker = Cooker(
+                  id: c.name,
+                  name: c.name,
+                  avatarUrl: c.avatarUrl,
+                  location: '',
+                  rating: 0.0,
+                  bio: '',
+                );
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CookerMessagesPage(
-                      cookerName: c.name,
-                      cookerAvatarUrl: c.avatarUrl,
-                    ),
+                    builder: (_) => CookerMessagesPage(cooker: cooker),
                   ),
                 );
               },

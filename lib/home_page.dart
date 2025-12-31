@@ -4,7 +4,9 @@ import 'category_page.dart';
 import 'cooker_details.dart';
 import 'messages.dart';
 import 'dish_details_page.dart';
-import 'Desserts.dart'; // ✅ تأكد أن اسم الملف متطابق مع اسمك الحقيقي
+import 'Desserts.dart'; // si tu veux garder DessertsPage
+import 'models/cooker.dart';
+import 'models/dish.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -50,7 +52,6 @@ class HomePage extends StatelessWidget {
 }
 
 /* --------------------------- HEADER + SEARCH --------------------------- */
-
 class _HeaderWithSearch extends StatelessWidget {
   const _HeaderWithSearch();
 
@@ -139,7 +140,6 @@ class _HeaderWithSearch extends StatelessWidget {
 }
 
 /* ------------------------------ CATEGORIES ----------------------------- */
-
 class _CategoriesSection extends StatelessWidget {
   const _CategoriesSection({super.key});
 
@@ -278,7 +278,6 @@ class _CategoryChip extends StatelessWidget {
 }
 
 /* --------------------------- FEATURED DISHES --------------------------- */
-
 class _FeaturedDishesSection extends StatelessWidget {
   const _FeaturedDishesSection();
 
@@ -353,24 +352,6 @@ class _FeaturedDishesSection extends StatelessWidget {
   }
 }
 
-class Dish {
-  final String name;
-  final String price;
-  final String cookName;
-  final double rating;
-  final String location;
-  final String imageAsset;
-
-  Dish({
-    required this.name,
-    required this.price,
-    required this.cookName,
-    required this.rating,
-    required this.location,
-    required this.imageAsset,
-  });
-}
-
 class _DishCard extends StatelessWidget {
   final Dish dish;
 
@@ -382,7 +363,7 @@ class _DishCard extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const DishDetailsPage()),
+          MaterialPageRoute(builder: (_) => DishDetailsPage(dish: dish)),
         );
       },
       child: SizedBox(
@@ -483,7 +464,6 @@ class _DishCard extends StatelessWidget {
 }
 
 /* ----------------------------- BEST COOKS ------------------------------ */
-
 class _BestCooksSection extends StatelessWidget {
   const _BestCooksSection();
 
@@ -561,9 +541,18 @@ class _CookCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        final cooker = Cooker(
+          id: cook.name,
+          name: cook.name,
+          avatarUrl: cook.imageAsset,
+          location: cook.location,
+          rating: cook.rating,
+          bio: 'طباخة منزلية تقدم وصفات تقليدية وصحية. تواصل واطلب الآن.',
+        );
+
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const CookerDetailsPage()),
+          MaterialPageRoute(builder: (_) => CookerDetailsPage(cooker: cooker)),
         );
       },
       child: Container(
@@ -670,7 +659,6 @@ class _CookCard extends StatelessWidget {
 }
 
 /* -------------------------- BOTTOM NAVIGATION -------------------------- */
-
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar();
 

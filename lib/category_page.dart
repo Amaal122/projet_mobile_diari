@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dish_details_page.dart';
+import 'models/dish.dart';
 
 class CategoryPage extends StatelessWidget {
   final String categoryName;
@@ -26,10 +27,7 @@ class CategoryPage extends StatelessWidget {
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                categoryEmoji,
-                style: const TextStyle(fontSize: 24),
-              ),
+              Text(categoryEmoji, style: const TextStyle(fontSize: 24)),
               const SizedBox(width: 8),
               Text(
                 'أطباق $categoryName',
@@ -251,17 +249,14 @@ class _DishListItem extends StatelessWidget {
           context,
           MaterialPageRoute(
             builder: (_) => DishDetailsPage(
-              dishName: dish.name,
-              dishPrice: dish.price,
-              dishImage: dish.imageAsset,
-              cookName: dish.cookName,
-              cookImage: dish.cookImage,
-              rating: dish.rating,
-              location: dish.location,
-              description: dish.description,
-              ingredients: dish.ingredients,
-              preparationTime: dish.preparationTime,
-              tags: dish.tags,
+              dish: Dish(
+                name: dish.name,
+                price: dish.price,
+                cookName: dish.cookName,
+                rating: dish.rating,
+                location: dish.location,
+                imageAsset: dish.imageAsset,
+              ),
             ),
           ),
         );
@@ -304,7 +299,7 @@ class _DishListItem extends StatelessWidget {
                 },
               ),
             ),
-            
+
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -318,16 +313,13 @@ class _DishListItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  
+
                   Text(
                     dish.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 12),
-                  
+
                   Row(
                     children: [
                       Container(
@@ -373,7 +365,7 @@ class _DishListItem extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -404,7 +396,7 @@ class _DishListItem extends StatelessWidget {
                           ],
                         ),
                       ),
-                      
+
                       Text(
                         '${dish.price} د.ت',
                         style: const TextStyle(

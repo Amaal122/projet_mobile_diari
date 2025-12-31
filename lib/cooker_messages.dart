@@ -1,16 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'models/cooker.dart';
 
 class CookerMessagesPage extends StatefulWidget {
-  final String cookerName;
-  final String cookerAvatarUrl;
+  final Cooker cooker;
 
-  const CookerMessagesPage({
-    super.key,
-    required this.cookerName,
-    required this.cookerAvatarUrl,
-  });
+  const CookerMessagesPage({super.key, required this.cooker});
 
   @override
   State<CookerMessagesPage> createState() => _CookerMessagesPageState();
@@ -29,7 +25,7 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
       time: DateTime.now().subtract(const Duration(minutes: 4, seconds: 30)),
     ),
     _Message(
-      text: 'الكسكسي  للواحد 15.50TND، تحب نحصلك خدمة التوصيل؟',
+      text: 'الكسكسي للواحد 15.50TND، تحب نحصلك خدمة التوصيل؟',
       isMe: false,
       time: DateTime.now().subtract(const Duration(minutes: 3)),
     ),
@@ -79,6 +75,12 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
     });
   }
 
+  ImageProvider? _avatarProvider(String url) {
+    if (url.isEmpty) return null;
+    if (url.startsWith('http')) return NetworkImage(url);
+    return AssetImage(url);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -90,9 +92,9 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
           title: Row(
             children: [
               CircleAvatar(
-                backgroundImage: NetworkImage(widget.cookerAvatarUrl),
                 radius: 18,
                 backgroundColor: Colors.grey[200],
+                backgroundImage: _avatarProvider(widget.cooker.avatarUrl),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -100,7 +102,7 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.cookerName,
+                      widget.cooker.name,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -141,7 +143,7 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
                       isMe: m.isMe,
                       time: m.time,
                       showAvatar: showAvatar,
-                      avatarUrl: widget.cookerAvatarUrl,
+                      avatarUrl: widget.cooker.avatarUrl,
                     ),
                   );
                 },
@@ -166,7 +168,9 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
                         borderRadius: BorderRadius.circular(30),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black12.withAlpha((0.03 * 255).round()),
+                            color: Colors.black12.withAlpha(
+                              (0.03 * 255).round(),
+                            ),
                             blurRadius: 6,
                           ),
                         ],
@@ -251,7 +255,9 @@ class _MessageBubble extends StatelessWidget {
         if (!isMe) ...[
           if (showAvatar)
             CircleAvatar(
-              backgroundImage: NetworkImage(avatarUrl),
+              backgroundImage: avatarUrl.startsWith('http')
+                  ? NetworkImage(avatarUrl)
+                  : AssetImage(avatarUrl) as ImageProvider,
               radius: 16,
               backgroundColor: Colors.grey[200],
             ),

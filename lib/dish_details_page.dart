@@ -1,35 +1,13 @@
 import 'package:flutter/material.dart';
+import 'models/dish.dart';
 
 const Color _primary = Color(0xFFEE8C2B);
 const Color _backgroundLight = Color(0xFFF8F7F6);
 
 class DishDetailsPage extends StatelessWidget {
-  final String? dishName;
-  final String? dishPrice;
-  final String? dishImage;
-  final String? cookName;
-  final String? cookImage;
-  final double? rating;
-  final String? location;
-  final String? description;
-  final List<String>? ingredients;
-  final String? preparationTime;
-  final List<String>? tags;
+  final Dish dish;
 
-  const DishDetailsPage({
-    super.key,
-    this.dishName,
-    this.dishPrice,
-    this.dishImage,
-    this.cookName,
-    this.cookImage,
-    this.rating,
-    this.location,
-    this.description,
-    this.ingredients,
-    this.preparationTime,
-    this.tags,
-  });
+  const DishDetailsPage({super.key, required this.dish});
 
   @override
   Widget build(BuildContext context) {
@@ -60,17 +38,14 @@ class DishDetailsPage extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    dishImage ?? 'assets/images/koski.jpg',
+                  child: Container(
                     height: 220,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 220,
-                        color: Colors.grey.shade200,
-                        child: Icon(Icons.restaurant, size: 60, color: Colors.grey.shade400),
-                      );
-                    },
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(dish.imageAsset),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -82,7 +57,7 @@ class DishDetailsPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      dishName ?? 'كسكسي بالحم',
+                      dish.name,
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontSize: 32,
@@ -92,7 +67,7 @@ class DishDetailsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${dishPrice ?? "15"} دينار',
+                      dish.price,
                       textAlign: TextAlign.right,
                       style: const TextStyle(
                         fontSize: 22,
@@ -102,7 +77,7 @@ class DishDetailsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'من اعداد ${cookName ?? "مريم"}',
+                      'من اعداد ${dish.cookName}',
                       textAlign: TextAlign.right,
                       style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
@@ -110,19 +85,19 @@ class DishDetailsPage extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        const Text(
-                          '(24 تقييم)',
-                          style: TextStyle(
+                        Text(
+                          '(${dish.rating.toStringAsFixed(0)} تقييم)',
+                          style: const TextStyle(
                             fontSize: 13,
                             color: Colors.grey,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        _buildStars(rating ?? 4.5),
+                        _buildStars(dish.rating),
                         const SizedBox(width: 8),
                         Text(
-                          (rating ?? 4.5).toStringAsFixed(1),
+                          dish.rating.toStringAsFixed(1),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -156,7 +131,7 @@ class DishDetailsPage extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'تفاصيل ${dishName ?? "الكسكسي"}',
+                        'تفاصيل ${dish.name}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -164,10 +139,10 @@ class DishDetailsPage extends StatelessWidget {
                         textAlign: TextAlign.right,
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        description ?? 'كسكسي تونسي دياري بلحم العلوش، بنّة عالمية و اللحم طايب في حقّو.',
+                      const Text(
+                        'وصف افتراضي للطبق — يمكن إضافة الحقول لاحقاً في نموذج Dish.',
                         textAlign: TextAlign.right,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           height: 1.6,
                           color: Colors.black87,
@@ -178,9 +153,11 @@ class DishDetailsPage extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         alignment: WrapAlignment.end,
-                        children: (ingredients ?? ['لحم علوش', 'فلفل مقلي', 'بطاطا', 'قرع'])
-                            .map((ingredient) => _TagChip(label: ingredient))
-                            .toList(),
+                        children: const [
+                          _TagChip(label: 'مكون 1'),
+                          _TagChip(label: 'مكون 2'),
+                          _TagChip(label: 'مكون 3'),
+                        ],
                       ),
                     ],
                   ),
@@ -220,7 +197,7 @@ class DishDetailsPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           Text(
-                            'في ${location ?? "العوينة"}',
+                            'في ${dish.location}',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.black87,
@@ -233,16 +210,16 @@ class DishDetailsPage extends StatelessWidget {
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
+                        children: const [
                           Text(
-                            preparationTime ?? 'متوفر مع نصف النهار',
-                            style: const TextStyle(
+                            'متوفر مع نصف النهار',
+                            style: TextStyle(
                               fontSize: 14,
                               color: Colors.black87,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.schedule, color: _primary),
+                          SizedBox(width: 6),
+                          Icon(Icons.schedule, color: _primary),
                         ],
                       ),
                     ],
@@ -272,21 +249,10 @@ class DishDetailsPage extends StatelessWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
                         child: Image.asset(
-                          cookImage ?? 'assets/images/mariem.jpg',
+                          'lib/assets/images/mariem.jpg',
                           height: 64,
                           width: 64,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 64,
-                              width: 64,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(Icons.person, color: Colors.grey.shade400),
-                            );
-                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -295,7 +261,7 @@ class DishDetailsPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              'مطبخ ${cookName ?? "مريم"}',
+                              'مطبخ ${dish.cookName}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -307,7 +273,7 @@ class DishDetailsPage extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Text(
-                                  (rating ?? 4.8).toStringAsFixed(1),
+                                  dish.rating.toStringAsFixed(1),
                                   style: const TextStyle(
                                     fontSize: 13,
                                     color: Colors.grey,
@@ -315,7 +281,11 @@ class DishDetailsPage extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.star, size: 16, color: Colors.amber),
+                                const Icon(
+                                  Icons.star,
+                                  size: 16,
+                                  color: Colors.amber,
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -323,9 +293,10 @@ class DishDetailsPage extends StatelessWidget {
                               spacing: 6,
                               runSpacing: 6,
                               alignment: WrapAlignment.end,
-                              children: (tags ?? ['وصفات عائلية', 'أفضل الطهاة'])
-                                  .map((tag) => _OutlineTag(label: tag))
-                                  .toList(),
+                              children: const [
+                                _OutlineTag(label: 'وصفات عائلية'),
+                                _OutlineTag(label: 'أفضل الطهاة'),
+                              ],
                             ),
                           ],
                         ),
@@ -338,10 +309,7 @@ class DishDetailsPage extends StatelessWidget {
             ],
           ),
         ),
-        bottomNavigationBar: _BottomArea(
-          dishName: dishName,
-          dishPrice: dishPrice,
-        ),
+        bottomNavigationBar: _BottomArea(dish: dish),
       ),
     );
   }
@@ -349,7 +317,7 @@ class DishDetailsPage extends StatelessWidget {
   Widget _buildStars(double rating) {
     int fullStars = rating.floor();
     bool hasHalfStar = (rating - fullStars) >= 0.5;
-    
+
     return Row(
       children: List.generate(5, (index) {
         if (index < fullStars) {
@@ -415,10 +383,9 @@ class _OutlineTag extends StatelessWidget {
 }
 
 class _BottomArea extends StatelessWidget {
-  final String? dishName;
-  final String? dishPrice;
+  final Dish dish;
 
-  const _BottomArea({this.dishName, this.dishPrice});
+  const _BottomArea({required this.dish});
 
   @override
   Widget build(BuildContext context) {
@@ -443,7 +410,7 @@ class _BottomArea extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () {
-                  showOrderBottomSheet(context, dishName, dishPrice);
+                  showOrderBottomSheet(context, dish);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primary,
@@ -464,7 +431,7 @@ class _BottomArea extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () {
-                  showRatingBottomSheet(context, dishName);
+                  showRatingBottomSheet(context, dish);
                 },
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(
@@ -526,10 +493,11 @@ class _BottomArea extends StatelessWidget {
 }
 
 // Bottom Sheet pour la commande
-void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPrice) {
+void showOrderBottomSheet(BuildContext context, Dish dish) {
   int quantity = 1;
   final TextEditingController noteController = TextEditingController();
-  final double price = double.tryParse(dishPrice ?? '15') ?? 15.0;
+  final raw = RegExp(r'[\d.]+').firstMatch(dish.price)?.group(0) ?? '15';
+  final double price = double.tryParse(raw) ?? 15.0;
 
   showModalBottomSheet(
     context: context,
@@ -616,9 +584,9 @@ void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPr
                             iconSize: 28,
                           ),
                         ),
-                        
+
                         const SizedBox(width: 32),
-                        
+
                         // Affichage quantité
                         Container(
                           width: 100,
@@ -649,9 +617,9 @@ void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPr
                             ),
                           ),
                         ),
-                        
+
                         const SizedBox(width: 32),
-                        
+
                         // Bouton plus
                         Container(
                           decoration: BoxDecoration(
@@ -755,7 +723,10 @@ void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPr
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _primary, width: 2),
+                          borderSide: const BorderSide(
+                            color: _primary,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -794,9 +765,12 @@ void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPr
                             onPressed: () {
                               Navigator.pop(context);
                               // Afficher le bottom sheet de notation après la commande
-                              Future.delayed(const Duration(milliseconds: 300), () {
-                                showRatingBottomSheet(context, dishName);
-                              });
+                              Future.delayed(
+                                const Duration(milliseconds: 300),
+                                () {
+                                  showRatingBottomSheet(context, dish);
+                                },
+                              );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _primary,
@@ -836,7 +810,7 @@ void showOrderBottomSheet(BuildContext context, String? dishName, String? dishPr
 }
 
 // Bottom Sheet pour la notation
-void showRatingBottomSheet(BuildContext context, String? dishName) {
+void showRatingBottomSheet(BuildContext context, Dish dish) {
   int rating = 0;
   int hoverRating = 0;
   final TextEditingController commentController = TextEditingController();
@@ -884,7 +858,7 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      dishName ?? 'كسكسي تقليدي',
+                      dish.name,
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.grey.shade600,
@@ -902,7 +876,7 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                       ),
                       child: ClipOval(
                         child: Image.asset(
-                          'assets/images/koski.jpg',
+                          dish.imageAsset,
                           width: 80,
                           height: 80,
                           fit: BoxFit.cover,
@@ -929,17 +903,25 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                             setState(() => rating = index + 1);
                           },
                           child: MouseRegion(
-                            onEnter: (_) => setState(() => hoverRating = index + 1),
+                            onEnter: (_) =>
+                                setState(() => hoverRating = index + 1),
                             onExit: (_) => setState(() => hoverRating = 0),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.all(4),
-                              child:                                 Icon(
-                                (index < (hoverRating > 0 ? hoverRating : rating))
+                              child: Icon(
+                                (index <
+                                        (hoverRating > 0
+                                            ? hoverRating
+                                            : rating))
                                     ? Icons.star
                                     : Icons.star_border,
                                 size: 48,
-                                color: (index < (hoverRating > 0 ? hoverRating : rating))
+                                color:
+                                    (index <
+                                        (hoverRating > 0
+                                            ? hoverRating
+                                            : rating))
                                     ? Colors.amber
                                     : Colors.grey.shade300,
                               ),
@@ -971,7 +953,10 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _primary, width: 2),
+                          borderSide: const BorderSide(
+                            color: _primary,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -986,7 +971,7 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                             ? () {
                                 // Enregistrer la notation
                                 Navigator.pop(context);
-                                
+
                                 // Afficher un message de confirmation
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -1001,7 +986,10 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                                           ),
                                         ),
                                         SizedBox(width: 8),
-                                        Icon(Icons.check_circle, color: Colors.white),
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Colors.white,
+                                        ),
                                       ],
                                     ),
                                     backgroundColor: Colors.green,
@@ -1016,7 +1004,9 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: rating > 0 ? _primary : Colors.grey.shade300,
+                          backgroundColor: rating > 0
+                              ? _primary
+                              : Colors.grey.shade300,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -1028,7 +1018,9 @@ void showRatingBottomSheet(BuildContext context, String? dishName) {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: rating > 0 ? Colors.white : Colors.grey.shade500,
+                            color: rating > 0
+                                ? Colors.white
+                                : Colors.grey.shade500,
                           ),
                         ),
                       ),

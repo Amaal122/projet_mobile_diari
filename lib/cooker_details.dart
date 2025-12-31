@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'models/cooker.dart';
 import 'cooker_messages.dart';
 
 class CookerDetailsPage extends StatelessWidget {
-  const CookerDetailsPage({super.key});
+  final Cooker cooker;
+
+  const CookerDetailsPage({super.key, required this.cooker});
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +66,7 @@ class CookerDetailsPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Text(
-                                'فاطمة الغربي',
+                                cooker.name,
                                 style: Theme.of(context).textTheme.titleLarge
                                     ?.copyWith(fontWeight: FontWeight.w600),
                               ),
@@ -79,9 +82,9 @@ class CookerDetailsPage extends StatelessWidget {
                                     size: 18,
                                   ),
                                   const SizedBox(width: 6),
-                                  const Text(
-                                    '4.8',
-                                    style: TextStyle(
+                                  Text(
+                                    cooker.rating.toStringAsFixed(1),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -105,7 +108,7 @@ class CookerDetailsPage extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'المرسى، تونس',
+                                    cooker.location,
                                     style: TextStyle(color: Colors.grey[700]),
                                   ),
                                 ],
@@ -123,7 +126,7 @@ class CookerDetailsPage extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'طبّاخة محترفة في الدار مع أكثر من 20 سنة خبرة في المطبخ التونسي التقليدي. تعلمت هذه الوصفات من جدّتي ونحب نشارك الطعم الأصيل متاع الدار مع المجتمع متاعي. كل طبق مصنوع بمكونات طازجة ومحلية وبرشا حب!',
+                                cooker.bio,
                                 style: TextStyle(
                                   color: Colors.grey[800],
                                   height: 1.6,
@@ -149,9 +152,9 @@ class CookerDetailsPage extends StatelessWidget {
                           backgroundColor: Colors.white,
                           child: CircleAvatar(
                             radius: 50,
-                            backgroundImage: NetworkImage(
-                              'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-                            ),
+                            backgroundImage: cooker.avatarUrl.startsWith('http')
+                                ? NetworkImage(cooker.avatarUrl)
+                                : AssetImage(cooker.avatarUrl) as ImageProvider,
                           ),
                         ),
                       ),
@@ -396,11 +399,7 @@ class CookerDetailsPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => CookerMessagesPage(
-                      cookerName: 'فاطمة الغربي',
-                      cookerAvatarUrl:
-                          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=60',
-                    ),
+                    builder: (context) => CookerMessagesPage(cooker: cooker),
                   ),
                 );
               },
