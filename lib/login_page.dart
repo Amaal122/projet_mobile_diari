@@ -1,22 +1,7 @@
 import 'package:flutter/material.dart';
 import 'signup_page.dart';
 import 'home_page.dart';
-
-void main() {
-  runApp(const DiariApp());
-}
-
-class DiariApp extends StatelessWidget {
-  const DiariApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
-    );
-  }
-}
+import 'api_service.dart'; // Import the connector
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -28,12 +13,59 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _pass = TextEditingController();
+  
+  // 1. Add a loading state
+  bool isLoading = false;
 
   @override
   void dispose() {
     _email.dispose();
     _pass.dispose();
     super.dispose();
+  }
+
+  // 2. The Real Login Function
+  void loginUser() async {
+    // Basic validation
+    if (_email.text.isEmpty || _pass.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("الرجاء ملء جميع الحقول")),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true; // Start loading spinner
+    });
+
+    // Call Python Backend
+    final result = await ApiService.login(_email.text, _pass.text);
+
+    setState(() {
+      isLoading = false; // Stop loading spinner
+    });
+
+    if (result.containsKey('success')) {
+      // SUCCESS: Go to Home Page
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("مرحباً بك مرة أخرى، ${result['username']}!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } else {
+      // ERROR: Show the red error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error'] ?? "فشل تسجيل الدخول"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -158,16 +190,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Login Button
+                  // Login Button (UPDATED)
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const HomePage()),
-                        );
-                      },
+                      onPressed: isLoading ? null : loginUser, // Disable if loading
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFCB675B),
                         shape: RoundedRectangleBorder(
@@ -175,14 +203,16 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         elevation: 0,
                       ),
-                      child: const Text(
-                        'تسجيل الدخول',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: isLoading 
+                          ? const CircularProgressIndicator(color: Colors.white) 
+                          : const Text(
+                              'تسجيل الدخول',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -235,8 +265,10 @@ class _LoginPageState extends State<LoginPage> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          // Ensure you have this image asset, otherwise comment it out
                           Image.asset(
                             "assets/signupwithgoogle.png",
+                            height: 24, // Added height to prevent layout errors
                             fit: BoxFit.cover,
                           ),
                           const SizedBox(width: 12),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'api_service.dart';
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
@@ -152,7 +152,8 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  void _register() {
+ void _register() async {
+    // 1. Basic Validation (Keep existing checks)
     if (_name.text.isEmpty ||
         _email.text.isEmpty ||
         _pass.text.isEmpty ||
@@ -166,8 +167,31 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-    // ✔ هنا تعمل API مع backend Flask
-    _showMessage('تم إنشاء الحساب بنجاح ✔');
+    // 2. Show "Loading" message
+    _showMessage('جاري الاتصال بالخادم...');
+
+    // 3. Call the Python Backend
+    // We pass: Name, Email, Password
+    var result = await ApiService.signup(
+      _name.text, 
+      _email.text, 
+      _pass.text
+    );
+
+    // 4. Check the result
+    if (result.containsKey('success')) {
+      // SUCCESS: The server said "True"
+      _showMessage('تم إنشاء الحساب بنجاح ✔');
+      
+      // Optional: Wait 1 second then close the page
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) Navigator.pop(context);
+      });
+    } else {
+      // ERROR: The server returned an error (like "Email already exists")
+      // We show the specific error message from Python
+      _showMessage('خطأ: ${result['error']}');
+    }
   }
 
   void _showMessage(String msg) {
