@@ -127,9 +127,11 @@ Diari bridges the gap between talented home chefs and food lovers looking for au
 #### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/diari-app.git
-cd diari-app
+git clone https://github.com/Amaal122/projet_mobile_diari.git
+cd projet_mobile_diari
 ```
+
+**⚠️ Important:** Firebase configuration files are not included for security. See [SETUP_FOR_COLLEAGUES.md](SETUP_FOR_COLLEAGUES.md) for complete setup instructions and how to obtain the required config files.
 
 #### 2. Frontend Setup (Flutter)
 
@@ -149,9 +151,12 @@ flutter run
 
 **Configure Firebase for Flutter:**
 
-1. Place your `google-services.json` in `android/app/`
-2. Place your `GoogleService-Info.plist` in `ios/Runner/`
-3. Update `lib/firebase_options.dart` with your Firebase config
+Firebase configuration files are required but not included in the repository.  
+📖 **See [SETUP_FOR_COLLEAGUES.md](SETUP_FOR_COLLEAGUES.md) for detailed instructions** on obtaining and placing these files:
+
+1. `google-services.json` → `android/app/`
+2. `GoogleService-Info.plist` → `ios/Runner/`
+3. `firebase_options.dart` → `lib/`
 
 #### 3. Backend Setup (Flask)
 
