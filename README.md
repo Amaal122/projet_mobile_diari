@@ -131,13 +131,13 @@ git clone https://github.com/Amaal122/projet_mobile_diari.git
 cd projet_mobile_diari
 ```
 
-**⚠️ Important:** Firebase configuration files are not included for security. See [SETUP_FOR_COLLEAGUES.md](SETUP_FOR_COLLEAGUES.md) for complete setup instructions and how to obtain the required config files.
+**⚠️ Important:** Firebase configuration files are not included in the repository for security reasons. Contact the project team to obtain the required configuration files before running the app.
 
 #### 2. Frontend Setup (Flutter)
 
 ```bash
 # Navigate to project root
-cd diari-app
+cd projet_mobile_diari
 
 # Install Flutter dependencies
 flutter pub get
@@ -151,12 +151,12 @@ flutter run
 
 **Configure Firebase for Flutter:**
 
-Firebase configuration files are required but not included in the repository.  
-📖 **See [SETUP_FOR_COLLEAGUES.md](SETUP_FOR_COLLEAGUES.md) for detailed instructions** on obtaining and placing these files:
+Firebase configuration files are required but not included in the repository for security.  
+**Required files (contact project team):**
 
-1. `google-services.json` → `android/app/`
-2. `GoogleService-Info.plist` → `ios/Runner/`
-3. `firebase_options.dart` → `lib/`
+1. `google-services.json` → Place in: `android/app/`
+2. `GoogleService-Info.plist` → Place in: `ios/Runner/` (iOS only)
+3. `firebase_options.dart` → Place in: `lib/`
 
 #### 3. Backend Setup (Flask)
 
