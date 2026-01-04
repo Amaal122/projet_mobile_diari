@@ -52,6 +52,7 @@ backend/.env
 backend/serviceAccountKey.json
 firebase.json
 firestore.rules
+web/firebase-messaging-sw.js
 
 # Backend
 backend/__pycache__/

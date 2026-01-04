@@ -1,14 +1,16 @@
 // Firebase Cloud Messaging Service Worker
+// ⚠️ IMPORTANT: Replace these placeholder values with your actual Firebase config
+// Get your config from Firebase Console > Project Settings > Web App
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "AIzaSyDxaHMU6qzWDMzh4RJxLpxe66WW-Ih9dXY",
-  authDomain: "diari-prototype.firebaseapp.com",
-  projectId: "diari-prototype",
-  storageBucket: "diari-prototype.firebasestorage.app",
-  messagingSenderId: "820634668869",
-  appId: "1:820634668869:web:0dcb3d91c3f8f3f3cc4a8d"
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
 });
 
 const messaging = firebase.messaging();
