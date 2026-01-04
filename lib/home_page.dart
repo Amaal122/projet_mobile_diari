@@ -1,19 +1,48 @@
 import 'package:flutter/material.dart';
-import 'userinterface.dart';
+import 'theme.dart';
 import 'category_page.dart';
 import 'cooker_details.dart';
-import 'messages.dart';
 import 'dish_details_page.dart';
-import 'Desserts.dart'; // si tu veux garder DessertsPage
+import 'search_page.dart';
 import 'models/cooker.dart';
 import 'models/dish.dart';
 import 'all_dishes_page.dart';
+import 'services/dish_service.dart' as dish_svc;
+import 'services/cooker_service.dart' as cooker_svc;
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final bool showNavBar;
+  const HomePage({super.key, this.showNavBar = true});
 
-  static const Color primary = Color(0xFFEE8C2B);
-  static const Color backgroundLight = Color(0xFFF8F7F6);
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  static const Color backgroundLight = AppColors.backgroundLight;
+
+  List<dish_svc.Dish> _popularDishes = [];
+  List<cooker_svc.Cooker> _topCookers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    
+    final dishes = await dish_svc.DishService.getPopularDishes(limit: 10);
+    final cookers = await cooker_svc.CookerService.getTopCookers(limit: 5);
+    
+    setState(() {
+      _popularDishes = dishes;
+      _topCookers = cookers;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,31 +51,32 @@ class HomePage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: backgroundLight,
         body: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
-              children: const [
-                _HeaderWithSearch(),
-                SizedBox(height: 32),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _CategoriesSection(),
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const _HeaderWithSearch(),
+                      const SizedBox(height: 32),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: _CategoriesSection(),
+                      ),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _FeaturedDishesSection(dishes: _popularDishes),
+                      ),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: _BestCooksSection(cookers: _topCookers),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 24),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _FeaturedDishesSection(),
-                ),
-                SizedBox(height: 24),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: _BestCooksSection(),
-                ),
-                SizedBox(height: 24),
-              ],
-            ),
-          ),
         ),
-        bottomNavigationBar: const _BottomNavBar(),
       ),
     );
   }
@@ -67,7 +97,7 @@ class _HeaderWithSearch extends StatelessWidget {
             height: 180,
             width: double.infinity,
             decoration: const BoxDecoration(
-              color: HomePage.primary,
+              color: AppColors.primary,
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -97,6 +127,13 @@ class _HeaderWithSearch extends StatelessWidget {
                     ],
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/cart');
+                  },
+                ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -115,21 +152,29 @@ class _HeaderWithSearch extends StatelessWidget {
             child: Material(
               elevation: 4,
               borderRadius: BorderRadius.circular(16),
-              child: TextField(
-                textAlign: TextAlign.right,
-                decoration: InputDecoration(
-                  hintText: 'ابحث عن طبق بيتي...',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide.none,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SearchPage()),
+                  );
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
                     vertical: 16,
                     horizontal: 16,
                   ),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.search, color: Colors.grey),
+                      SizedBox(width: 12),
+                      Text(
+                        'ابحث عن طبق بيتي...',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -142,7 +187,7 @@ class _HeaderWithSearch extends StatelessWidget {
 
 /* ------------------------------ CATEGORIES ----------------------------- */
 class _CategoriesSection extends StatelessWidget {
-  const _CategoriesSection({super.key});
+  const _CategoriesSection();
 
   @override
   Widget build(BuildContext context) {
@@ -211,7 +256,12 @@ class _CategoriesSection extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const DessertsPage()),
+            MaterialPageRoute(
+              builder: (_) => const CategoryPage(
+                categoryName: 'حلويات',
+                categoryEmoji: '🍰',
+              ),
+            ),
           );
         },
       ),
@@ -252,8 +302,9 @@ class _CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -280,52 +331,53 @@ class _CategoryChip extends StatelessWidget {
 
 /* --------------------------- FEATURED DISHES --------------------------- */
 class _FeaturedDishesSection extends StatelessWidget {
-  const _FeaturedDishesSection();
+  final List<dish_svc.Dish> dishes;
+  const _FeaturedDishesSection({required this.dishes});
 
   @override
   Widget build(BuildContext context) {
-    final dishes = [
-      Dish(
-        name: 'كسكسي بالخضار',
-        price: '15.00 د.ت',
-        cookName: 'سنية',
-        rating: 4.8,
-        location: 'العوينة',
-        imageAsset: 'lib/assets/images/koski.jpg',
-      ),
-      Dish(
-        name: 'ملوخية باللحم',
-        price: '22.50 د.ت',
-        cookName: 'أمينة',
-        rating: 4.9,
-        location: 'المرسى',
-        imageAsset: 'lib/assets/images/mloukhia.jpg',
-      ),
-      Dish(
-        name: 'مقرونة بالدجاج',
-        price: '12.00 د.ت',
-        cookName: 'عائشة',
-        rating: 4.7,
-        location: 'أريانة',
-        imageAsset: 'lib/assets/images/ma9rouna.jpg',
-      ),
-    ];
+    if (dishes.isEmpty) {
+      return Column(
+        children: [
+          const Text(
+            'الأطباق المميزة',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(32),
+            child: const Text(
+              'لا توجد أطباق متاحة حالياً',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'الأطباق المميزة',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            Text(
-              'عرض الكل',
-              style: TextStyle(
-                color: HomePage.primary,
-                fontWeight: FontWeight.w600,
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AllDishesPage()),
+                );
+              },
+              child: const Text(
+                'عرض الكل',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -354,19 +406,31 @@ class _FeaturedDishesSection extends StatelessWidget {
 }
 
 class _DishCard extends StatelessWidget {
-  final Dish dish;
+  final dish_svc.Dish dish;
 
   const _DishCard({required this.dish});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // Convert Firestore Dish to old Dish model for navigation
+    final oldDish = Dish(
+      name: dish.nameAr,
+      price: '${dish.price.toStringAsFixed(2)} د.ت',
+      cookName: dish.cookerName,
+      cookerId: dish.cookerId, // Pass cookerId for order tracking
+      rating: dish.rating,
+      location: 'تونس', // Default location
+      imageAsset: dish.image,
+    );
+
+    return InkWell(
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DishDetailsPage(dish: dish)),
+          MaterialPageRoute(builder: (_) => DishDetailsPage(dish: oldDish, dishId: dish.id)),
         );
       },
+      borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         width: 220,
         child: Container(
@@ -389,12 +453,25 @@ class _DishCard extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
                 ),
-                child: Image.asset(
-                  dish.imageAsset,
-                  height: 130,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+                child: dish.image.startsWith('http')
+                    ? Image.network(
+                        dish.image,
+                        height: 130,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildImagePlaceholder();
+                        },
+                      )
+                    : Image.asset(
+                        dish.image,
+                        height: 130,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return _buildImagePlaceholder();
+                        },
+                      ),
               ),
               Padding(
                 padding: const EdgeInsets.all(10),
@@ -402,7 +479,7 @@ class _DishCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      dish.name,
+                      dish.nameAr,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -412,15 +489,15 @@ class _DishCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      dish.price,
+                      '${dish.price.toStringAsFixed(2)} د.ت',
                       style: const TextStyle(
-                        color: HomePage.primary,
+                        color: AppColors.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'من عند ${dish.cookName}',
+                      'من عند ${dish.cookerName}',
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     const SizedBox(height: 6),
@@ -443,10 +520,10 @@ class _DishCard extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            const Icon(Icons.location_on, size: 16),
+                            const Icon(Icons.access_time, size: 16),
                             const SizedBox(width: 2),
                             Text(
-                              dish.location,
+                              '${dish.prepTime} دقيقة',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ],
@@ -462,37 +539,49 @@ class _DishCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      height: 130,
+      width: double.infinity,
+      color: Colors.grey[300],
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.restaurant, size: 40, color: Colors.grey),
+          SizedBox(height: 8),
+          Text('صورة غير متوفرة', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
 }
 
 /* ----------------------------- BEST COOKS ------------------------------ */
 class _BestCooksSection extends StatelessWidget {
-  const _BestCooksSection();
+  final List<cooker_svc.Cooker> cookers;
+  const _BestCooksSection({required this.cookers});
 
   @override
   Widget build(BuildContext context) {
-    final cooks = [
-      Cook(
-        name: 'مريم بن علي',
-        location: 'عوينة',
-        rating: 4.9,
-        tags: const ['حار', 'نباتي'],
-        imageAsset: 'lib/assets/images/mariem.jpg',
-      ),
-      Cook(
-        name: 'علي الغربي',
-        location: 'البحيرة، تونس',
-        rating: 4.8,
-        tags: const ['أطباق بحرية', 'مشويات'],
-        imageAsset: 'lib/assets/images/ali.jpg',
-      ),
-      Cook(
-        name: 'سارة منصور',
-        location: 'المنزه، تونس',
-        rating: 4.7,
-        tags: const ['حلويات', 'معجنات'],
-        imageAsset: 'lib/assets/images/sarra.jpg',
-      ),
-    ];
+    if (cookers.isEmpty) {
+      return Column(
+        children: [
+          const Text(
+            'أفضل الطباخين بالقرب منك',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(32),
+            child: const Text(
+              'لا يوجد طباخين متاحين حالياً',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,11 +592,11 @@ class _BestCooksSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Column(
-          children: cooks
+          children: cookers
               .map(
-                (cook) => Padding(
+                (cooker) => Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: _CookCard(cook: cook),
+                  child: _CookCard(cooker: cooker),
                 ),
               )
               .toList(),
@@ -517,45 +606,31 @@ class _BestCooksSection extends StatelessWidget {
   }
 }
 
-class Cook {
-  final String name;
-  final String location;
-  final double rating;
-  final List<String> tags;
-  final String imageAsset;
-
-  Cook({
-    required this.name,
-    required this.location,
-    required this.rating,
-    required this.tags,
-    required this.imageAsset,
-  });
-}
-
 class _CookCard extends StatelessWidget {
-  final Cook cook;
+  final cooker_svc.Cooker cooker;
 
-  const _CookCard({required this.cook});
+  const _CookCard({required this.cooker});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        final cooker = Cooker(
-          id: cook.name,
-          name: cook.name,
-          avatarUrl: cook.imageAsset,
-          location: cook.location,
-          rating: cook.rating,
-          bio: 'طباخة منزلية تقدم وصفات تقليدية وصحية. تواصل واطلب الآن.',
-        );
+    // Convert Firestore Cooker to old Cooker model for navigation
+    final oldCooker = Cooker(
+      id: cooker.id,
+      name: cooker.name,
+      avatarUrl: cooker.image,
+      location: cooker.location,
+      rating: cooker.rating,
+      bio: cooker.bio,
+    );
 
+    return InkWell(
+      onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => CookerDetailsPage(cooker: cooker)),
+          MaterialPageRoute(builder: (_) => CookerDetailsPage(cooker: oldCooker)),
         );
       },
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -573,12 +648,25 @@ class _CookCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(999),
-              child: Image.asset(
-                cook.imageAsset,
-                width: 56,
-                height: 56,
-                fit: BoxFit.cover,
-              ),
+              child: cooker.image.startsWith('http')
+                  ? Image.network(
+                      cooker.image,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildAvatarPlaceholder();
+                      },
+                    )
+                  : Image.asset(
+                      cooker.image,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _buildAvatarPlaceholder();
+                      },
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -588,11 +676,15 @@ class _CookCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        cook.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          cooker.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Row(
@@ -600,7 +692,7 @@ class _CookCard extends StatelessWidget {
                           const Icon(Icons.star, size: 16, color: Colors.amber),
                           const SizedBox(width: 2),
                           Text(
-                            cook.rating.toStringAsFixed(1),
+                            cooker.rating.toStringAsFixed(1),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ],
@@ -612,11 +704,15 @@ class _CookCard extends StatelessWidget {
                     children: [
                       const Icon(Icons.location_on, size: 16),
                       const SizedBox(width: 4),
-                      Text(
-                        cook.location,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                      Expanded(
+                        child: Text(
+                          cooker.location,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -624,7 +720,7 @@ class _CookCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
-                    children: cook.tags
+                    children: cooker.tags.take(3)
                         .map(
                           (t) => Container(
                             padding: const EdgeInsets.symmetric(
@@ -632,7 +728,7 @@ class _CookCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: HomePage.primary.withAlpha(
+                              color: AppColors.primary.withAlpha(
                                 (0.12 * 255).round(),
                               ),
                               borderRadius: BorderRadius.circular(999),
@@ -642,7 +738,7 @@ class _CookCard extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w500,
-                                color: HomePage.primary,
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
@@ -657,60 +753,18 @@ class _CookCard extends StatelessWidget {
       ),
     );
   }
-}
 
-/* -------------------------- BOTTOM NAVIGATION -------------------------- */
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: 0,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: HomePage.primary,
-      unselectedItemColor: Colors.grey,
-      onTap: (index) {
-  if (index == 1) {
-    // الطلبات
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AllDishesPage()),
-    );
-    return;
-  }
-
-  if (index == 2) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MessagesPage()),
-    );
-    return;
-  }
-
-  if (index == 3) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const UserInterfacePage()),
-    );
-  }
-},
-
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.receipt_long),
-          label: 'الطلبات',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.chat_bubble_outline),
-          label: 'الرسائل',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          label: 'الحساب',
-        ),
-      ],
+  Widget _buildAvatarPlaceholder() {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.person, size: 32, color: Colors.grey),
     );
   }
 }
+
+

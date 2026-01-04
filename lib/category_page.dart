@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'dish_details_page.dart';
+import 'theme.dart';
 import 'models/dish.dart';
+import 'services/dish_service.dart' as dish_svc;
 
-class CategoryPage extends StatelessWidget {
+class CategoryPage extends StatefulWidget {
   final String categoryName;
   final String categoryEmoji;
 
@@ -13,24 +15,63 @@ class CategoryPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final dishes = _getDishesForCategory(categoryName);
+  State<CategoryPage> createState() => _CategoryPageState();
+}
 
+class _CategoryPageState extends State<CategoryPage> {
+  List<dish_svc.Dish> _dishes = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDishes();
+  }
+
+  Future<void> _loadDishes() async {
+    setState(() => _isLoading = true);
+    
+    String categoryId = _mapCategoryToId(widget.categoryName);
+    
+    final dishes = await dish_svc.DishService.getDishesByCategory(categoryId);
+    setState(() {
+      _dishes = dishes;
+      _isLoading = false;
+    });
+  }
+
+  String _mapCategoryToId(String displayCategory) {
+    // Map display category names to chef's actual category IDs
+    final mapping = {
+      'بحري': 'seafood',
+      'كسكسي': 'couscous',
+      'مقرونة': 'pasta',
+      'تقليدي': 'traditional',
+      'حلويات': 'desserts',
+      'سلطات': 'salads',
+      'مقبلات': 'appetizers',
+      'مشوي': 'grilled',
+    };
+    return mapping[displayCategory] ?? displayCategory;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F7F6),
+        backgroundColor: AppColors.backgroundLight,
         appBar: AppBar(
-          backgroundColor: const Color(0xFFEE8C2B),
+          backgroundColor: AppColors.primary,
           elevation: 0,
           centerTitle: true,
           title: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(categoryEmoji, style: const TextStyle(fontSize: 24)),
+              Text(widget.categoryEmoji, style: const TextStyle(fontSize: 24)),
               const SizedBox(width: 8),
               Text(
-                'أطباق $categoryName',
+                'أطباق ${widget.categoryName}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 20,
@@ -41,370 +82,93 @@ class CategoryPage extends StatelessWidget {
           ),
           iconTheme: const IconThemeData(color: Colors.white),
         ),
-        body: dishes.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.restaurant_menu,
-                      size: 80,
-                      color: Colors.grey.shade400,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _dishes.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.restaurant_menu, size: 80, color: Colors.grey.shade400),
+                        const SizedBox(height: 20),
+                        Text('لا توجد أطباق متاحة حاليا', style: TextStyle(fontSize: 18, color: Colors.grey.shade600)),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'لا توجد أطباق متاحة حالياً',
-                      style: TextStyle(
-                        fontSize: 18,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: dishes.length,
-                itemBuilder: (context, index) {
-                  return _DishListItem(dish: dishes[index]);
-                },
-              ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _dishes.length,
+                    itemBuilder: (context, index) {
+                      return _DishListItem(dish: _dishes[index]);
+                    },
+                  ),
       ),
     );
   }
-
-  List<DishData> _getDishesForCategory(String category) {
-    final Map<String, List<DishData>> dishesDatabase = {
-      'بحري': [
-        DishData(
-          name: 'سمك مشوي',
-          cookName: 'محمد الساحلي',
-          cookImage: 'lib/assets/images/ali.jpg',
-          rating: 4.9,
-          price: '25.00',
-          location: 'حلق الوادي',
-          imageAsset: 'lib/assets/images/fish.jpg',
-          description: 'سمك طازج مشوي على الفحم مع صلصة الهريسة',
-          ingredients: ['سمك طازج', 'ليمون', 'هريسة', 'ثوم', 'كزبرة'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['حار', 'صحي', 'بروتين عالي'],
-        ),
-        DishData(
-          name: 'كمونية روبيان',
-          cookName: 'ليلى البحراوي',
-          cookImage: 'lib/assets/images/mariem.jpg',
-          rating: 4.8,
-          price: '28.00',
-          location: 'قرطاج',
-          imageAsset: 'lib/assets/images/shrimp.jpg',
-          description: 'روبيان طازج بالكمون والهريسة على الطريقة التونسية',
-          ingredients: ['روبيان', 'كمون', 'هريسة', 'طماطم', 'فلفل'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['حار', 'بحري', 'حريف'],
-        ),
-        DishData(
-          name: 'مقرونة بالفواكه البحرية',
-          cookName: 'نادية الصيادي',
-          cookImage: 'lib/assets/images/sarra.jpg',
-          rating: 4.7,
-          price: '22.00',
-          location: 'المرسى',
-          imageAsset: 'lib/assets/images/seafood_pasta.jpg',
-          description: 'مقرونة بالروبيان والكلمار وبلح البحر',
-          ingredients: ['مقرونة', 'روبيان', 'كلمار', 'بلح البحر', 'صلصة'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['إيطالي', 'بحري'],
-        ),
-        DishData(
-          name: 'سلطة تونسية بالتونة',
-          cookName: 'فاطمة الزهراء',
-          cookImage: 'lib/assets/images/mariem.jpg',
-          rating: 4.6,
-          price: '15.00',
-          location: 'باردو',
-          imageAsset: 'lib/assets/images/tuna_salad.jpg',
-          description: 'سلطة تونسية مع التونة الطازجة والبيض والزيتون',
-          ingredients: ['تونة', 'بيض', 'زيتون', 'طماطم', 'فلفل'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['صحي', 'خفيف'],
-        ),
-      ],
-      'كسكسي': [
-        DishData(
-          name: 'كسكسي بالخضار',
-          cookName: 'سنية',
-          cookImage: 'lib/assets/images/mariem.jpg',
-          rating: 4.8,
-          price: '15.00',
-          location: 'العوينة',
-          imageAsset: 'lib/assets/images/koski.jpg',
-          description: 'كسكسي تقليدي بالخضار الطازجة',
-          ingredients: ['كسكسي', 'جزر', 'كوسة', 'فلفل', 'بطاطا'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['نباتي', 'صحي'],
-        ),
-        DishData(
-          name: 'كسكسي باللحم',
-          cookName: 'آمال',
-          cookImage: 'lib/assets/images/sarra.jpg',
-          rating: 4.9,
-          price: '18.00',
-          location: 'المنزه',
-          imageAsset: 'lib/assets/images/couscous.jpg',
-          description: 'كسكسي باللحم الأحمر والخضار',
-          ingredients: ['كسكسي', 'لحم غنمي', 'خضار', 'حمص', 'فلفل'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['تقليدي', 'لحم'],
-        ),
-      ],
-      'مقرونة': [
-        DishData(
-          name: 'مقرونة بالدجاج',
-          cookName: 'عائشة',
-          cookImage: 'lib/assets/images/mariem.jpg',
-          rating: 4.7,
-          price: '12.00',
-          location: 'أريانة',
-          imageAsset: 'lib/assets/images/ma9rouna.jpg',
-          description: 'مقرونة بالدجاج والصلصة الحمراء',
-          ingredients: ['مقرونة', 'دجاج', 'صلصة طماطم', 'بصل', 'ثوم'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['دجاج', 'إيطالي'],
-        ),
-      ],
-      'تقليدي': [
-        DishData(
-          name: 'ملوخية باللحم',
-          cookName: 'أمينة',
-          cookImage: 'lib/assets/images/sarra.jpg',
-          rating: 4.9,
-          price: '22.50',
-          location: 'المرسى',
-          imageAsset: 'lib/assets/images/mloukhia.jpg',
-          description: 'ملوخية تونسية أصيلة باللحم',
-          ingredients: ['ملوخية', 'لحم', 'ثوم', 'هريسة', 'بهارات'],
-          preparationTime: 'متوفر مع نصف النهار',
-          tags: ['تقليدي', 'تونسي'],
-        ),
-      ],
-      'حلويات': [
-        DishData(
-          name: 'كعك الورقة',
-          cookName: 'فاطمة',
-          cookImage: 'lib/assets/images/mariem.jpg',
-          rating: 4.6,
-          price: '8.00',
-          location: 'باردو',
-          imageAsset: 'lib/assets/images/cake.jpg',
-          description: 'كعك الورقة التونسي بالعسل واللوز',
-          ingredients: ['عجين ورقة', 'لوز', 'عسل', 'ماء الزهر', 'سكر'],
-          preparationTime: 'متوفر طوال اليوم',
-          tags: ['حلويات', 'تقليدي'],
-        ),
-      ],
-    };
-
-    return dishesDatabase[category] ?? [];
-  }
-}
-
-class DishData {
-  final String name;
-  final String cookName;
-  final String cookImage;
-  final double rating;
-  final String price;
-  final String location;
-  final String imageAsset;
-  final String description;
-  final List<String> ingredients;
-  final String preparationTime;
-  final List<String> tags;
-
-  DishData({
-    required this.name,
-    required this.cookName,
-    required this.cookImage,
-    required this.rating,
-    required this.price,
-    required this.location,
-    required this.imageAsset,
-    required this.description,
-    required this.ingredients,
-    required this.preparationTime,
-    required this.tags,
-  });
 }
 
 class _DishListItem extends StatelessWidget {
-  final DishData dish;
-
+  final dish_svc.Dish dish;
   const _DishListItem({required this.dish});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final oldDish = Dish(
+      name: dish.nameAr,
+      price: '${dish.price.toStringAsFixed(2)} د.ت',
+      cookName: dish.cookerName,
+      cookerId: dish.cookerId,
+      rating: dish.rating,
+      location: 'تونس',
+      imageAsset: dish.image,
+    );
+
+    return InkWell(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DishDetailsPage(
-              dish: Dish(
-                name: dish.name,
-                price: dish.price,
-                cookName: dish.cookName,
-                rating: dish.rating,
-                location: dish.location,
-                imageAsset: dish.imageAsset,
-              ),
-            ),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => DishDetailsPage(dish: oldDish, dishId: dish.id)));
       },
+      borderRadius: BorderRadius.circular(16),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha((0.05 * 255).round()),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          boxShadow: const [BoxShadow(blurRadius: 8, offset: Offset(0, 4), color: Colors.black12)],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              child: Image.asset(
-                dish.imageAsset,
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 180,
-                    color: Colors.grey.shade200,
-                    child: Icon(
-                      Icons.restaurant,
-                      size: 60,
-                      color: Colors.grey.shade400,
-                    ),
-                  );
-                },
-              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: dish.image.startsWith('http')
+                  ? Image.network(dish.image, height: 200, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildImagePlaceholder())
+                  : Image.asset(dish.image, height: 200, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildImagePlaceholder()),
             ),
-
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    dish.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Text(
-                    dish.description,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEE8C2B).withAlpha((0.1 * 255).round()),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.person,
-                          size: 20,
-                          color: Color(0xFFEE8C2B),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dish.cookName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on, size: 14),
-                                const SizedBox(width: 4),
-                                Text(
-                                  dish.location,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.withAlpha((0.1 * 255).round()),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              dish.rating.toStringAsFixed(1),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Text(
-                        '${dish.price} د.ت',
-                        style: const TextStyle(
-                          color: Color(0xFFEE8C2B),
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Expanded(child: Text(dish.nameAr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                      Text('${dish.price.toStringAsFixed(2)} د.ت', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 18)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text('من عند ${dish.cookerName}', style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber, size: 18),
+                      const SizedBox(width: 4),
+                      Text(dish.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      Text(' (${dish.reviewCount})', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.access_time, size: 18, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('${dish.prepTime} دقيقة', style: const TextStyle(fontSize: 14)),
                     ],
                   ),
                 ],
@@ -414,5 +178,9 @@ class _DishListItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(height: 200, color: Colors.grey[300], child: const Center(child: Icon(Icons.restaurant, size: 60, color: Colors.grey)));
   }
 }

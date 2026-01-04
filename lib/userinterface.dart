@@ -1,21 +1,68 @@
 import 'package:flutter/material.dart';
+import 'theme.dart';
+import 'services/auth_service.dart';
+import 'services/user_service.dart';
+import 'services/enhanced_order_service.dart';
 
 class UserInterfacePage extends StatefulWidget {
-  const UserInterfacePage({super.key});
+  final bool showOrders;
+  final bool showNavBar;
+  const UserInterfacePage({super.key, this.showOrders = false, this.showNavBar = true});
 
   @override
   State<UserInterfacePage> createState() => _UserInterfacePageState();
 }
 
 class _UserInterfacePageState extends State<UserInterfacePage> {
-  bool isProfileTab = true;
-  final Color primaryColor = const Color(0xFFEE8C2B); // Orange Diari
-  final Color backgroundColor = const Color(0xFFF9F9F9); // Couleur Background
+  Color get primaryColor => AppColors.primary; // Orange Diari
+  Color get backgroundColor => AppColors.backgroundLight; // Couleur Background
 
   // بيانات المستخدم
-  String fullName = 'سارة بناني';
-  String email = 'sarah.b@email.com';
+  String fullName = 'سارة منصور';
+  String email = 'sara@example.com';
   String phone = '+216 20 123 456';
+  List<Order> _orders = [];
+  bool _isLoadingOrders = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadOrders();
+  }
+  
+  Future<void> _loadOrders() async {
+    if (!mounted) return;
+    setState(() => _isLoadingOrders = true);
+    final orders = await OrderService.getOrderHistory();
+    if (mounted) {
+      setState(() {
+        _orders = orders;
+        _isLoadingOrders = false;
+      });
+    }
+  }
+  
+  void _loadUserData() async {
+    // Get user from Firebase Auth
+    final user = AuthService.currentUser;
+    if (user != null) {
+      setState(() {
+        email = user.email ?? 'sara@example.com';
+        fullName = user.displayName ?? 'سارة منصور';
+      });
+      
+      // Load profile from backend
+      final response = await UserService.getProfile();
+      if (response.success && response.data != null) {
+        final profile = UserProfile.fromJson(response.data!);
+        setState(() {
+          fullName = profile.name;
+          phone = profile.phone;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,9 +74,7 @@ class _UserInterfacePageState extends State<UserInterfacePage> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: isProfileTab
-                  ? _buildProfileSettingsList(context)
-                  : _buildOrdersList(),
+              child: _buildOrdersList(),
             ),
           ],
         ),
@@ -52,532 +97,158 @@ class _UserInterfacePageState extends State<UserInterfacePage> {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              const Text(
+                'طلباتي',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
           ),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Colors.white24,
-                  shape: BoxShape.circle,
-                ),
-                child: const CircleAvatar(
-                  radius: 35,
-                  backgroundImage: AssetImage('lib/assets/images/sarra2.jpg'),
-                ),
-              ),
-              const SizedBox(width: 15),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fullName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    email,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  Text(
-                    phone,
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 25),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha((0.2 * 255).round()),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildTabButton(
-                    text: 'الملف الشخصي',
-                    isSelected: isProfileTab,
-                    onTap: () => setState(() => isProfileTab = true),
-                  ),
-                ),
-                Expanded(
-                  child: _buildTabButton(
-                    text: 'الطلبات',
-                    isSelected: !isProfileTab,
-                    onTap: () => setState(() => isProfileTab = false),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTabButton({
-    required String text,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: isSelected ? primaryColor : Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // --- MENU PROFIL ---
-  Widget _buildProfileSettingsList(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        // EDIT PROFILE
-        _buildMenuItem(
-          icon: Icons.person_outline,
-          title: 'تعديل الملف الشخصي',
-          onTap: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EditProfilePage(
-                  currentName: fullName,
-                  currentEmail: email,
-                  currentPhone: phone,
-                ),
-              ),
-            );
-
-            if (result != null && result is Map<String, String>) {
-              setState(() {
-                fullName = result['name']!;
-                email = result['email']!;
-                phone = result['phone']!;
-              });
-            }
-          },
-        ),
-        _buildMenuItem(
-          icon: Icons.location_on_outlined,
-          title: 'عناويني',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddressesPage()),
-          ),
-        ),
-        _buildMenuItem(
-          icon: Icons.favorite_border,
-          title: 'المفضلة',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const FavoritesPage()),
-          ),
-        ),
-        _buildMenuItem(
-          icon: Icons.credit_card,
-          title: 'طرق الدفع',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const PaymentPage()),
-          ),
-        ),
-        _buildMenuItem(icon: Icons.notifications_none, title: 'الإشعارات'),
-        _buildMenuItem(icon: Icons.settings_outlined, title: 'الإعدادات'),
-        _buildMenuItem(icon: Icons.help_outline, title: 'المساعدة والدعم'),
-        const SizedBox(height: 10),
-        _buildMenuItem(
-          icon: Icons.logout,
-          title: 'تسجيل الخروج',
-          isDestructive: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMenuItem({
-    required IconData icon,
-    required String title,
-    bool isDestructive = false,
-    VoidCallback? onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha((0.03 * 255).round()),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isDestructive
-                ? Colors.red.withAlpha((0.1 * 255).round())
-                : const Color(0xFFF5F3F1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: isDestructive ? Colors.red : const Color(0xFF5D4037),
-            size: 22,
-          ),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            color: isDestructive ? Colors.red : Colors.black87,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          size: 16,
-          color: Colors.grey,
-        ),
-        onTap: onTap ?? () {},
       ),
     );
   }
 
   // --- LISTE COMMANDES ---
   Widget _buildOrdersList() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+    return Column(
       children: [
-        const Text(
-          'سجل الطلبات',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'سجل الطلبات',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/order-history').then((_) => _loadOrders());
+                },
+                child: const Text('عرض الكل'),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 15),
-        _buildOrderItem(
-          title: 'كسكسي تقليدي',
-          cook: 'من عند فاطمة الغربي',
-          date: '10 نوفمبر 2025',
-          price: '15.50 دينار',
-          imagePath: 'lib/assets/images/koski.jpg',
-        ),
-        _buildOrderItem(
-          title: 'مقرونة تونسية',
-          cook: 'من عند آمال بوعزيزي',
-          date: '8 نوفمبر 2025',
-          price: '12.00 دينار',
-          imagePath: 'lib/assets/images/ma9rouna.jpg',
+        Expanded(
+          child: _isLoadingOrders
+              ? const Center(child: CircularProgressIndicator())
+              : _orders.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long_outlined, size: 80, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          const Text('لا توجد طلبات', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pushNamed(context, '/home'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primaryColor,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            ),
+                            child: const Text('تصفح الأطباق'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadOrders,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _orders.length > 5 ? 5 : _orders.length,
+                        itemBuilder: (context, index) {
+                          final order = _orders[index];
+                          return _buildOrderCard(order);
+                        },
+                      ),
+                    ),
         ),
       ],
     );
   }
-
-  Widget _buildOrderItem({
-    required String title,
-    required String cook,
-    required String date,
-    required String price,
-    required String imagePath,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha((0.05 * 255).round()),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
+  
+  Widget _buildOrderCard(Order order) {
+    Color statusColor;
+    switch (order.status) {
+      case 'pending': statusColor = Colors.orange; break;
+      case 'confirmed': statusColor = Colors.blue; break;
+      case 'preparing': statusColor = Colors.purple; break;
+      case 'on_the_way': statusColor = Colors.teal; break;
+      case 'delivered': statusColor = Colors.green; break;
+      case 'cancelled': statusColor = Colors.red; break;
+      default: statusColor = Colors.grey;
+    }
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(context, '/order-details', arguments: order.id).then((_) => _loadOrders());
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  imagePath,
-                  height: 70,
-                  width: 70,
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => Container(
-                    height: 70,
-                    width: 70,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.restaurant, color: Colors.grey),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    Text('طلب #${order.id.substring(0, 8)}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(
-                      cook,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    Text(
-                      date,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
+                    Text('${order.items.length} طبق',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(_formatOrderDate(order.createdAt),
+                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ),
-              Text(
-                price,
-                style: TextStyle(
-                  color: primaryColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      order.statusArabic,
+                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('${order.total.toStringAsFixed(2)} دت',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryColor)),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.grey),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text(
-                    'اطلب مرة أخرى',
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () =>
-                      _showRatingBottomSheet(context, title, imagePath),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  child: const Text(
-                    'اترك تقييم',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
-
-  void _showRatingBottomSheet(
-    BuildContext context,
-    String dishTitle,
-    String imagePath,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        int rating = 0;
-
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: const EdgeInsets.all(25),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(30),
-                  topRight: Radius.circular(30),
-                ),
-              ),
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Drag handle
-                    Container(
-                      width: 50,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    const Text(
-                      "كيف كانت وجبتك؟",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Text(
-                      dishTitle,
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // Image
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: primaryColor.withAlpha((0.3 * 255).round()),
-                          width: 2,
-                        ),
-                      ),
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundImage: AssetImage(imagePath),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // Stars
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        5,
-                        (index) => IconButton(
-                          iconSize: 40,
-                          onPressed: () {
-                            setModalState(() {
-                              rating = index + 1;
-                            });
-                          },
-                          icon: Icon(
-                            index < rating
-                                ? Icons.star_rounded
-                                : Icons.star_outline_rounded,
-                            color: Colors.amber,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Comment
-                    TextField(
-                      maxLines: 3,
-                      textAlign: TextAlign.right,
-                      decoration: InputDecoration(
-                        hintText: "أكتب تعليقك هنا...",
-                        fillColor: const Color(0xFFF9F9F9),
-                        filled: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // Submit button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 55,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                "شكراً على تقييمك!",
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: const Text(
-                          "إرسال التقييم",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  
+  String _formatOrderDate(DateTime date) {
+    final now = DateTime.now();
+    if (date.day == now.day && date.month == now.month && date.year == now.year) {
+      return 'اليوم ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 
@@ -646,10 +317,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
               children: [
                 const CircleAvatar(
                   radius: 50,
-                  backgroundImage: AssetImage('lib/assets/images/sarra.jpg'),
+                  backgroundImage: AssetImage('assets/sarra.jpg'),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('يرجى اختيار صورة من المعرض أو الكاميرا'),
+                        backgroundColor: Color(0xFFEE8C2B),
+                      ),
+                    );
+                  },
                   child: const Text(
                     "تغيير الصورة",
                     style: TextStyle(color: Color(0xFFEE8C2B)),
@@ -983,12 +661,12 @@ class FavoritesPage extends StatelessWidget {
             _buildFavItem(
               "كسكسي بالخضار",
               "15.00 د.ت",
-              "lib/assets/images/koski.jpg",
+              "assets/koski.jpg",
             ),
             _buildFavItem(
               "ملوخية تونسية",
               "22.00 د.ت",
-              "lib/assets/images/mloukhia.jpg",
+              "assets/mloukhia.jpg",
             ),
           ],
         ),

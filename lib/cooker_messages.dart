@@ -1,38 +1,51 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'models/cooker.dart';
+import 'theme.dart';
+import 'services/firestore_message_service.dart';
 
 class CookerMessagesPage extends StatefulWidget {
   final Cooker cooker;
+  final String? conversationId;
 
-  const CookerMessagesPage({super.key, required this.cooker});
+  const CookerMessagesPage({super.key, required this.cooker, this.conversationId});
 
   @override
   State<CookerMessagesPage> createState() => _CookerMessagesPageState();
 }
 
 class _CookerMessagesPageState extends State<CookerMessagesPage> {
-  final List<_Message> _messages = [
-    _Message(
-      text: 'مرحباً! شنو تحب تطلب اليوم؟',
-      isMe: false,
-      time: DateTime.now().subtract(const Duration(minutes: 5)),
-    ),
-    _Message(
-      text: 'نحب نطلب كسكسي اليوم، شنو الأسعار؟',
-      isMe: true,
-      time: DateTime.now().subtract(const Duration(minutes: 4, seconds: 30)),
-    ),
-    _Message(
-      text: 'الكسكسي للواحد 15.50TND، تحب نحصلك خدمة التوصيل؟',
-      isMe: false,
-      time: DateTime.now().subtract(const Duration(minutes: 3)),
-    ),
-  ];
-
+  String? _conversationId;
+  bool _isLoading = true;
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _initConversation();
+  }
+
+  Future<void> _initConversation() async {
+    try {
+      if (widget.conversationId != null) {
+        _conversationId = widget.conversationId;
+      } else {
+        // Get or create conversation with this cooker
+        _conversationId = await FirestoreMessageService.getOrCreateConversation(widget.cooker.id);
+      }
+      
+      // Mark messages as read
+      if (_conversationId != null) {
+        await FirestoreMessageService.markAsRead(_conversationId!);
+      }
+    } catch (e) {
+      print('Error initializing conversation: $e');
+    }
+    
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -41,27 +54,21 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
     super.dispose();
   }
 
-  void _sendMessage(String text) {
-    if (text.trim().isEmpty) return;
-    final msg = _Message(text: text.trim(), isMe: true, time: DateTime.now());
-    setState(() => _messages.add(msg));
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty || _conversationId == null) return;
+    
     _controller.clear();
-    _scrollToBottom();
-
-    // optional auto-reply simulation from cooker
-    Timer(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(
-          _Message(
-            text: 'جميل! نتحضرك الطلب وتوصلك رسالة تأكيد قريباً.',
-            isMe: false,
-            time: DateTime.now(),
-          ),
-        );
-      });
+    
+    try {
+      await FirestoreMessageService.sendMessage(_conversationId!, text);
       _scrollToBottom();
-    });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('فشل إرسال الرسالة: $e')),
+        );
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -87,7 +94,7 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFFEA8F78),
+          backgroundColor: AppColors.primary,
           elevation: 1,
           title: Row(
             children: [
@@ -123,102 +130,111 @@ class _CookerMessagesPageState extends State<CookerMessagesPage> {
           ),
         ),
         backgroundColor: const Color(0xFFF5F7FA),
-        body: Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
-                ),
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final m = _messages[index];
-                  final showAvatar = !m.isMe;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: _MessageBubble(
-                      text: m.text,
-                      isMe: m.isMe,
-                      time: m.time,
-                      showAvatar: showAvatar,
-                      avatarUrl: widget.cooker.avatarUrl,
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            // Input area
-            SafeArea(
-              minimum: const EdgeInsets.only(
-                left: 12,
-                right: 12,
-                bottom: 8,
-                top: 8,
-              ),
-              child: Row(
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
                 children: [
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12.withAlpha(
-                              (0.03 * 255).round(),
-                            ),
-                            blurRadius: 6,
+                    child: _conversationId == null
+                        ? const Center(child: Text('خطأ في تحميل المحادثة'))
+                        : StreamBuilder<List<MessageModel>>(
+                            stream: FirestoreMessageService.getMessagesStream(_conversationId!),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+
+                              final messages = snapshot.data ?? [];
+                              
+                              if (messages.isEmpty) {
+                                return Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+                                      const SizedBox(height: 16),
+                                      Text('ابدأ المحادثة مع ${widget.cooker.name}', 
+                                           style: TextStyle(color: Colors.grey[600])),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              // Auto scroll when new messages arrive
+                              WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+                              return ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                itemCount: messages.length,
+                                itemBuilder: (context, index) {
+                                  final m = messages[index];
+                                  final isMe = m.isMe(FirestoreMessageService.currentUserId);
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    child: _MessageBubble(
+                                      text: m.text,
+                                      isMe: isMe,
+                                      time: m.timestamp ?? DateTime.now(),
+                                      showAvatar: !isMe,
+                                      avatarUrl: widget.cooker.avatarUrl,
+                                    ),
+                                  );
+                                },
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              textAlign: TextAlign.right,
-                              decoration: const InputDecoration(
-                                hintText: 'اكتب رسالة...',
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 12,
+                  ),
+
+                  // Input area
+                  SafeArea(
+                    minimum: const EdgeInsets.only(left: 12, right: 12, bottom: 8, top: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12.withAlpha((0.03 * 255).round()),
+                                  blurRadius: 6,
                                 ),
-                              ),
-                              onSubmitted: _sendMessage,
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _controller,
+                                    textAlign: TextAlign.right,
+                                    decoration: const InputDecoration(
+                                      hintText: 'اكتب رسالة...',
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(vertical: 12),
+                                    ),
+                                    onSubmitted: _sendMessage,
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => _sendMessage(_controller.text),
+                                  icon: const Icon(Icons.send, color: Color(0xFF2E6BF6)),
+                                ),
+                              ],
                             ),
                           ),
-                          IconButton(
-                            onPressed: () => _sendMessage(_controller.text),
-                            icon: const Icon(
-                              Icons.send,
-                              color: Color(0xFF2E6BF6),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
-}
-
-class _Message {
-  final String text;
-  final bool isMe;
-  final DateTime time;
-
-  _Message({required this.text, required this.isMe, required this.time});
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -260,6 +276,7 @@ class _MessageBubble extends StatelessWidget {
                   : AssetImage(avatarUrl) as ImageProvider,
               radius: 16,
               backgroundColor: Colors.grey[200],
+              onBackgroundImageError: (_, __) {},
             ),
           const SizedBox(width: 8),
         ],

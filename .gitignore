@@ -43,3 +43,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase sensitive files
+lib/firebase_options.dart
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+backend/.env
+backend/serviceAccountKey.json
+firebase.json
+firestore.rules
+
+# Backend
+backend/__pycache__/
+backend/app/__pycache__/
+backend/venv/
+backend/env/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Testing & temporary files
+test/
+flutter_input.txt
+*.bak

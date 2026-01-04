@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'theme.dart';
+import 'services/auth_service.dart';
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -12,6 +14,14 @@ class _SignupPageState extends State<SignupPage> {
   final TextEditingController _email = TextEditingController();
   final TextEditingController _pass = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
+  bool _isLoading = false;
+  String? _emailError;
+  String? _passError;
+  String? _confirmError;
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
 
   @override
   void dispose() {
@@ -26,7 +36,7 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFFCB675B),
+        backgroundColor: AppColors.primary,
         title: const Text('إنشاء حساب'),
         centerTitle: true,
       ),
@@ -68,6 +78,7 @@ class _SignupPageState extends State<SignupPage> {
                       controller: _email,
                       hint: 'البريد الإلكتروني',
                       icon: Icons.email_outlined,
+                      errorText: _emailError,
                     ),
                     const SizedBox(height: 12),
 
@@ -76,6 +87,7 @@ class _SignupPageState extends State<SignupPage> {
                       hint: 'كلمة المرور',
                       obscure: true,
                       icon: Icons.lock_outline,
+                      errorText: _passError,
                     ),
                     const SizedBox(height: 12),
 
@@ -84,6 +96,7 @@ class _SignupPageState extends State<SignupPage> {
                       hint: 'تأكيد كلمة المرور',
                       obscure: true,
                       icon: Icons.lock_reset,
+                      errorText: _confirmError,
                     ),
                     const SizedBox(height: 18),
 
@@ -91,18 +104,28 @@ class _SignupPageState extends State<SignupPage> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: _register,
+                        onPressed: _isLoading ? null : _register,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFCB675B),
+                          backgroundColor: AppColors.primary,
+                          disabledBackgroundColor: AppColors.primary.withOpacity(0.6),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(28),
                           ),
                         ),
-                        child: const Text(
-                          'إنشاء الحساب',
-                          style: TextStyle(fontSize: 16),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'إنشاء الحساب',
+                                style: TextStyle(fontSize: 16),
+                              ),
                       ),
                     ),
 
@@ -134,6 +157,7 @@ class _SignupPageState extends State<SignupPage> {
     required String hint,
     required IconData icon,
     bool obscure = false,
+    String? errorText,
   }) {
     return TextField(
       controller: controller,
@@ -143,6 +167,7 @@ class _SignupPageState extends State<SignupPage> {
         fillColor: Colors.grey[200],
         prefixIcon: Icon(icon),
         hintText: hint,
+        errorText: errorText,
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
@@ -152,7 +177,13 @@ class _SignupPageState extends State<SignupPage> {
     );
   }
 
-  void _register() {
+  void _register() async {
+    setState(() {
+      _emailError = null;
+      _passError = null;
+      _confirmError = null;
+    });
+
     if (_name.text.isEmpty ||
         _email.text.isEmpty ||
         _pass.text.isEmpty ||
@@ -161,20 +192,64 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
+    if (!_isValidEmail(_email.text)) {
+      setState(() {
+        _emailError = 'البريد الإلكتروني غير صحيح';
+      });
+      _showMessage('البريد الإلكتروني غير صحيح');
+      return;
+    }
+
+    if (_pass.text.length < 6) {
+      setState(() {
+        _passError = 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+      });
+      _showMessage('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      return;
+    }
+
     if (_pass.text != _confirm.text) {
+      setState(() {
+        _confirmError = 'كلمتا المرور غير متطابقتين';
+      });
       _showMessage('كلمتا المرور غير متطابقتين');
       return;
     }
 
-    // ✔ هنا تعمل API مع backend Flask
-    _showMessage('تم إنشاء الحساب بنجاح ✔');
+    setState(() {
+      _isLoading = true;
+    });
+
+    // Real Firebase Authentication
+    final result = await AuthService.signUp(
+      email: _email.text.trim(),
+      password: _pass.text,
+      displayName: _name.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (result.isSuccess) {
+      _showMessage('تم إنشاء الحساب بنجاح ✔');
+      // Go back to login page
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } else {
+      _showMessage(result.error ?? 'فشل إنشاء الحساب');
+    }
   }
 
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, textAlign: TextAlign.center),
-        backgroundColor: const Color(0xFFCB675B),
+        backgroundColor: AppColors.primary,
       ),
     );
   }

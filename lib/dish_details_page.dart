@@ -1,13 +1,365 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'models/dish.dart';
+import 'theme.dart';
+import 'services/enhanced_cart_service.dart';
+import 'services/user_service.dart';
+import 'services/review_service.dart';
+import 'services/dish_service.dart' as dish_svc;
 
-const Color _primary = Color(0xFFEE8C2B);
-const Color _backgroundLight = Color(0xFFF8F7F6);
+const Color _primary = AppColors.primary;
+const Color _backgroundLight = AppColors.backgroundLight;
 
-class DishDetailsPage extends StatelessWidget {
+class DishDetailsPage extends StatefulWidget {
   final Dish dish;
+  final String? dishId;
+  
+  const DishDetailsPage({super.key, required this.dish, this.dishId});
 
-  const DishDetailsPage({super.key, required this.dish});
+  @override
+  State<DishDetailsPage> createState() => _DishDetailsPageState();
+}
+
+class _DishDetailsPageState extends State<DishDetailsPage> {
+  int _quantity = 1;
+  bool _isAddingToCart = false;
+  bool _isFavorite = false;
+  bool _isCheckingFavorite = true;
+  List<Review> _reviews = [];
+  bool _isLoadingReviews = false;
+  dish_svc.Dish? _firestoreDish; // Store Firestore dish for cookerId
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDishData();
+    _checkIfFavorite();
+    _loadReviews();
+  }
+
+  Future<void> _loadDishData() async {
+    // If dishId is provided, fetch from Firestore to get cookerId
+    if (widget.dishId != null) {
+      final dish = await dish_svc.DishService.getDishById(widget.dishId!);
+      if (dish != null && mounted) {
+        setState(() {
+          _firestoreDish = dish;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkIfFavorite() async {
+    setState(() => _isCheckingFavorite = true);
+    final response = await UserService.getFavorites();
+    if (response.success && response.data != null) {
+      final List<dynamic> favList = response.data!['favorites'] ?? [];
+      final dishId = widget.dishId ?? widget.dish.name;
+      setState(() {
+        _isFavorite = favList.any((fav) => fav['dishId'] == dishId);
+        _isCheckingFavorite = false;
+      });
+    } else {
+      setState(() => _isCheckingFavorite = false);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final dishId = widget.dishId ?? widget.dish.name;
+    
+    if (_isFavorite) {
+      final response = await UserService.removeFavorite(dishId);
+      if (response.success && mounted) {
+        setState(() => _isFavorite = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تمت الإزالة من المفضلة'), backgroundColor: Colors.grey),
+        );
+      }
+    } else {
+      final response = await UserService.addFavorite(
+        dishId: dishId,
+        dishName: widget.dish.name,
+        dishImage: widget.dish.imageAsset,
+      );
+      if (response.success && mounted) {
+        setState(() => _isFavorite = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تمت الإضافة إلى المفضلة'), backgroundColor: _primary),
+        );
+      }
+    }
+  }
+
+  void _messageChef() {
+    if (_firestoreDish == null || _firestoreDish!.cookerId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('لا يمكن التواصل مع الطباخ حالياً'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Navigate to CookerMessagesPage with chef info
+    Navigator.pushNamed(
+      context,
+      '/cooker-messages',
+      arguments: {
+        'cookerId': _firestoreDish!.cookerId,
+        'cookerName': widget.dish.cookName,
+      },
+    );
+  }
+
+  Future<void> _loadReviews() async {
+    final dishId = widget.dishId ?? _firestoreDish?.id ?? widget.dish.name;
+    setState(() => _isLoadingReviews = true);
+    
+    try {
+      // Load directly from Firestore (more reliable)
+      final reviewsSnapshot = await FirebaseFirestore.instance
+          .collection('reviews')
+          .where('dishId', isEqualTo: dishId)
+          .limit(10)
+          .get();
+      
+      if (mounted) {
+        final reviews = reviewsSnapshot.docs.map((doc) {
+          final data = doc.data();
+          return Review(
+            id: doc.id,
+            rating: data['rating'] ?? 0,
+            comment: data['comment'] ?? '',
+            createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+            userName: data['userName'] ?? 'مستخدم',
+            userImage: data['userImage'] ?? '',
+          );
+        }).toList();
+        
+        // Sort by date (newest first)
+        reviews.sort((a, b) {
+          if (a.createdAt == null) return 1;
+          if (b.createdAt == null) return -1;
+          return b.createdAt!.compareTo(a.createdAt!);
+        });
+        
+        setState(() {
+          _reviews = reviews;
+          _isLoadingReviews = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading reviews from Firestore: $e');
+      if (mounted) {
+        setState(() {
+          _reviews = [];
+          _isLoadingReviews = false;
+        });
+      }
+    }
+  }
+
+  void _showAddReviewDialog() {
+    int rating = 0;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('أضف تقييمك', textAlign: TextAlign.right),
+          content: StatefulBuilder(
+            builder: (context, setModalState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) => IconButton(
+                    iconSize: 36,
+                    onPressed: () => setModalState(() => rating = index + 1),
+                    icon: Icon(
+                      index < rating ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                    ),
+                  )),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: commentController,
+                  maxLines: 3,
+                  textAlign: TextAlign.right,
+                  decoration: InputDecoration(
+                    hintText: 'اكتب تعليقك هنا...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (rating == 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('الرجاء اختيار تقييم')),
+                  );
+                  return;
+                }
+
+                Navigator.pop(ctx); // Close dialog immediately
+                
+                try {
+                  final dishId = widget.dishId ?? _firestoreDish?.id ?? widget.dish.name;
+                  final userId = FirebaseAuth.instance.currentUser?.uid ?? 'anonymous';
+                  
+                  // Get user info
+                  String userName = 'مستخدم';
+                  String userImage = '';
+                  
+                  try {
+                    final userDoc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(userId)
+                        .get();
+                    if (userDoc.exists) {
+                      final userData = userDoc.data()!;
+                      userName = userData['name'] ?? 'مستخدم';
+                      userImage = userData['profileImage'] ?? '';
+                    }
+                  } catch (e) {
+                    debugPrint('Error getting user info: $e');
+                  }
+                  
+                  // Save review directly to Firestore
+                  await FirebaseFirestore.instance.collection('reviews').add({
+                    'dishId': dishId,
+                    'userId': userId,
+                    'userName': userName,
+                    'userImage': userImage,
+                    'rating': rating,
+                    'comment': commentController.text.trim(),
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                  
+                  // Update dish rating
+                  final reviewsSnapshot = await FirebaseFirestore.instance
+                      .collection('reviews')
+                      .where('dishId', isEqualTo: dishId)
+                      .get();
+                  
+                  final ratings = reviewsSnapshot.docs
+                      .map((doc) => (doc.data()['rating'] ?? 0) as int)
+                      .toList();
+                  
+                  if (ratings.isNotEmpty) {
+                    final avgRating = ratings.reduce((a, b) => a + b) / ratings.length;
+                    await FirebaseFirestore.instance
+                        .collection('dishes')
+                        .doc(dishId)
+                        .update({
+                      'rating': double.parse(avgRating.toStringAsFixed(1)),
+                      'reviewCount': ratings.length,
+                    });
+                  }
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم إضافة التقييم بنجاح'), backgroundColor: _primary),
+                    );
+                    _loadReviews(); // Reload reviews
+                  }
+                } catch (e) {
+                  debugPrint('Error adding review: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('حدث خطأ: ${e.toString()}'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _primary),
+              child: const Text('إرسال'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _incrementQuantity() {
+    setState(() {
+      if (_quantity < 10) _quantity++;
+    });
+  }
+
+  void _decrementQuantity() {
+    setState(() {
+      if (_quantity > 1) _quantity--;
+    });
+  }
+
+  Future<void> _addToCart() async {
+    setState(() => _isAddingToCart = true);
+    
+    // Use cookerId from: 1) Firestore dish, 2) widget.dish.cookerId, 3) fallback to cookName
+    final cookerId = _firestoreDish?.cookerId ?? 
+                     (widget.dish.cookerId.isNotEmpty ? widget.dish.cookerId : widget.dish.cookName);
+    final cookerName = _firestoreDish?.cookerName ?? widget.dish.cookName;
+    
+    print('AddToCart: dishId=${widget.dishId ?? widget.dish.name}, cookerId=$cookerId, cookerName=$cookerName');
+    print('AddToCart: _firestoreDish=${_firestoreDish != null ? "loaded" : "null"}, firestoreCookerId=${_firestoreDish?.cookerId}');
+    print('AddToCart: widget.dish.cookerId=${widget.dish.cookerId}');
+    
+    final success = await CartService.addItem(
+      dishId: widget.dishId ?? widget.dish.name,
+      dishName: widget.dish.name,
+      price: _extractPrice(widget.dish.price),
+      image: widget.dish.imageAsset,
+      cookerId: cookerId,
+      cookerName: cookerName,
+      quantity: _quantity,
+    );
+    
+    setState(() => _isAddingToCart = false);
+    
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تمت الإضافة إلى السلة ($_quantity ${widget.dish.name})'),
+          backgroundColor: _primary,
+          action: SnackBarAction(
+            label: 'عرض السلة',
+            textColor: Colors.white,
+            onPressed: () => Navigator.pushNamed(context, '/cart'),
+          ),
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('فشل إضافة الطبق. تأكد من تسجيل الدخول.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  double _extractPrice(String priceStr) {
+    // Extract number from price string like "2.00 د.ت" or "15.50 دت"
+    // First, try to find a decimal number pattern
+    final match = RegExp(r'(\d+\.?\d*)').firstMatch(priceStr);
+    if (match != null) {
+      return double.tryParse(match.group(1)!) ?? 0.0;
+    }
+    return 0.0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,1020 +371,261 @@ class DishDetailsPage extends StatelessWidget {
           backgroundColor: _primary,
           elevation: 0,
           centerTitle: true,
-          title: const Text(
-            'تفاصيل الطبق',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+          title: const Text('تفاصيل الطبق', style: TextStyle(fontWeight: FontWeight.bold)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
           ),
+          actions: [
+            if (!_isCheckingFavorite)
+              IconButton(
+                icon: Icon(
+                  _isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: _isFavorite ? Colors.red : Colors.white,
+                ),
+                onPressed: _toggleFavorite,
+                tooltip: _isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+              ),
+          ],
         ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 140),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // صورة الهيدر
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    height: 220,
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(dish.imageAsset),
-                        fit: BoxFit.cover,
-                      ),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 140),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: widget.dish.imageAsset.startsWith('http')
+                          ? Image.network(widget.dish.imageAsset, height: 220, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 220,
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.restaurant, size: 60),
+                              ))
+                          : Image.asset(widget.dish.imageAsset, height: 220, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 220,
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.restaurant, size: 60),
+                              )),
                     ),
                   ),
-                ),
-              ),
-
-              // عنوان الطبق / السعر / الريفيو
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      dish.name,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dish.price,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: _primary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'من اعداد ${dish.cookName}',
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          '(${dish.rating.toStringAsFixed(0)} تقييم)',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStars(dish.rating),
-                        const SizedBox(width: 8),
-                        Text(
-                          dish.rating.toStringAsFixed(1),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // كارت "عن هذا الطبق"
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                        color: Colors.black12,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'تفاصيل ${dish.name}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'وصف افتراضي للطبق — يمكن إضافة الحقول لاحقاً في نموذج Dish.',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.6,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        alignment: WrapAlignment.end,
-                        children: const [
-                          _TagChip(label: 'مكون 1'),
-                          _TagChip(label: 'مكون 2'),
-                          _TagChip(label: 'مكون 3'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // كارت البلاصة و الوقت
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                        color: Colors.black12,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'البلاصة و الوقت',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            'في ${dish.location}',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.location_on, color: _primary),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: const [
-                          Text(
-                            'متوفر مع نصف النهار',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(Icons.schedule, color: _primary),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // كارت "مطبخ الطباخ"
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        blurRadius: 6,
-                        offset: Offset(0, 3),
-                        color: Colors.black12,
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: Image.asset(
-                          'lib/assets/images/mariem.jpg',
-                          height: 64,
-                          width: 64,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        Text(widget.dish.name, textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87)),
+                        const SizedBox(height: 4),
+                        Text(widget.dish.price, textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primary)),
+                        const SizedBox(height: 4),
+                        Text('من اعداد ${widget.dish.cookName}', textAlign: TextAlign.right,
+                            style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'مطبخ ${dish.cookName}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                            // Message Chef Button
+                            if (_firestoreDish?.cookerId != null)
+                              OutlinedButton.icon(
+                                onPressed: () => _messageChef(),
+                                icon: const Icon(Icons.message_outlined, size: 18),
+                                label: const Text('راسل الطباخ'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: _primary,
+                                  side: const BorderSide(color: _primary),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                ),
                               ),
-                              textAlign: TextAlign.right,
-                            ),
-                            const SizedBox(height: 4),
+                            // Rating
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
-                                Text(
-                                  dish.rating.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                                const Icon(Icons.star, size: 20, color: _primary),
                                 const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.star,
-                                  size: 16,
-                                  color: Colors.amber,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              alignment: WrapAlignment.end,
-                              children: const [
-                                _OutlineTag(label: 'وصفات عائلية'),
-                                _OutlineTag(label: 'أفضل الطهاة'),
+                                Text(widget.dish.rating.toStringAsFixed(1),
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-        bottomNavigationBar: _BottomArea(dish: dish),
-      ),
-    );
-  }
-
-  Widget _buildStars(double rating) {
-    int fullStars = rating.floor();
-    bool hasHalfStar = (rating - fullStars) >= 0.5;
-
-    return Row(
-      children: List.generate(5, (index) {
-        if (index < fullStars) {
-          return const Icon(Icons.star, size: 20, color: _primary);
-        } else if (index == fullStars && hasHalfStar) {
-          return const Icon(Icons.star_half, size: 20, color: _primary);
-        } else {
-          return const Icon(Icons.star_border, size: 20, color: _primary);
-        }
-      }),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  final String label;
-
-  const _TagChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: _primary.withAlpha((0.1 * 255).round()),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: _primary,
-        ),
-      ),
-    );
-  }
-}
-
-class _OutlineTag extends StatelessWidget {
-  final String label;
-
-  const _OutlineTag({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.grey.shade400),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomArea extends StatelessWidget {
-  final Dish dish;
-
-  const _BottomArea({required this.dish});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 8),
-        decoration: BoxDecoration(
-          color: _backgroundLight.withAlpha((0.9 * 255).round()),
-          boxShadow: const [
-            BoxShadow(
-              blurRadius: 6,
-              offset: Offset(0, -2),
-              color: Colors.black12,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  showOrderBottomSheet(context, dish);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.shopping_bag),
-                label: const Text(
-                  'اطلب هذا الطبق',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  showRatingBottomSheet(context, dish);
-                },
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: _primary.withAlpha((0.6 * 255).round()),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  backgroundColor: _primary.withAlpha((0.08 * 255).round()),
-                ),
-                icon: const Icon(Icons.star_border, color: _primary),
-                label: const Text(
-                  'اكتب تقييمك',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: _primary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Divider(),
-            BottomNavigationBar(
-              currentIndex: 0,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: _primary,
-              unselectedItemColor: Colors.grey,
-              onTap: (index) {
-                if (index == 0) {
-                  Navigator.pop(context);
-                }
-              },
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-                  label: 'الرئيسية',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.receipt_long),
-                  label: 'الطلبات',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.chat_bubble_outline),
-                  label: 'الرسائل',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person_outline),
-                  label: 'الحساب',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Bottom Sheet pour la commande
-void showOrderBottomSheet(BuildContext context, Dish dish) {
-  int quantity = 1;
-  final TextEditingController noteController = TextEditingController();
-  final raw = RegExp(r'[\d.]+').firstMatch(dish.price)?.group(0) ?? '15';
-  final double price = double.tryParse(raw) ?? 15.0;
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle barre
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-
-                    // Icône et titre
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: _primary.withAlpha((0.1 * 255).round()),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.shopping_bag,
-                        size: 40,
-                        color: _primary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'اختر الكمية',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'كم عدد الأطباق التي تريد طلبها؟',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Sélecteur de quantité
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Bouton moins
-                        Container(
-                          decoration: BoxDecoration(
-                            color: _primary.withAlpha((0.1 * 255).round()),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            onPressed: () {
-                              if (quantity > 1) {
-                                setState(() => quantity--);
-                              }
-                            },
-                            icon: const Icon(Icons.remove, color: _primary),
-                            iconSize: 28,
-                          ),
-                        ),
-
-                        const SizedBox(width: 32),
-
-                        // Affichage quantité
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [_primary, Color(0xFFFF9F4A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _primary.withAlpha((0.3 * 255).round()),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$quantity',
-                              style: const TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 32),
-
-                        // Bouton plus
-                        Container(
-                          decoration: BoxDecoration(
-                            color: _primary.withAlpha((0.1 * 255).round()),
-                            shape: BoxShape.circle,
-                          ),
-                          child: IconButton(
-                            onPressed: () {
-                              setState(() => quantity++);
-                            },
-                            icon: const Icon(Icons.add, color: _primary),
-                            iconSize: 28,
-                          ),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 32),
-
-                    // Prix total
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            _primary.withAlpha((0.1 * 255).round()),
-                            Color(0xFFFFE4CC).withAlpha((0.3 * 255).round()),
+                  ),
+                  const SizedBox(height: 24),
+                  // Reviews Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            TextButton.icon(
+                              onPressed: _showAddReviewDialog,
+                              icon: const Icon(Icons.add, color: _primary),
+                              label: const Text('أضف تقييم', style: TextStyle(color: _primary)),
+                            ),
+                            const Text('التقييمات', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        const SizedBox(height: 12),
+                        if (_isLoadingReviews)
+                          const Center(child: CircularProgressIndicator())
+                        else if (_reviews.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text('لا توجد تقييمات بعد. كن أول من يقيّم!', style: TextStyle(color: Colors.grey)),
+                            ),
+                          )
+                        else
+                          ..._reviews.map((review) => _buildReviewCard(review)).toList(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black26)],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${price.toStringAsFixed(2)} دينار',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const Text(
-                                'السعر للطبق الواحد:',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: _decrementQuantity,
                           ),
-                          const Divider(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${(price * quantity).toStringAsFixed(2)} دينار',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: _primary,
-                                ),
-                              ),
-                              const Text(
-                                'المجموع:',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
+                          Text('$_quantity', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: _incrementQuantity,
                           ),
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 24),
-
-                    // Champ de note
-                    TextField(
-                      controller: noteController,
-                      textAlign: TextAlign.right,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        hintText: 'ملاحظة (اختياري)',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: _primary,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Boutons
-                    Row(
-                      children: [
-                        // Bouton Annuler
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              side: BorderSide(color: Colors.grey.shade300),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              'رجوع',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Bouton Confirmer
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              // Afficher le bottom sheet de notation après la commande
-                              Future.delayed(
-                                const Duration(milliseconds: 300),
-                                () {
-                                  // ignore: use_build_context_synchronously
-                                  showRatingBottomSheet(context, dish);
-                                },
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _primary,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 4,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check, size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'تأكيد الطلب',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-// Bottom Sheet pour la notation
-void showRatingBottomSheet(BuildContext context, Dish dish) {
-  int rating = 0;
-  int hoverRating = 0;
-  final TextEditingController commentController = TextEditingController();
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Handle barre
-                    Container(
-                      width: 40,
-                      height: 4,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-
-                    // Titre
-                    const Text(
-                      'كيف كانت وجبتك؟',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      dish.name,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Image du plat
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: _primary.withAlpha((0.1 * 255).round()),
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          dish.imageAsset,
-                          width: 80,
-                          height: 80,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 80,
-                              height: 80,
-                              color: Colors.grey.shade200,
-                              child: const Icon(Icons.restaurant, size: 40),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Étoiles de notation
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (index) {
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() => rating = index + 1);
-                          },
-                          child: MouseRegion(
-                            onEnter: (_) =>
-                                setState(() => hoverRating = index + 1),
-                            onExit: (_) => setState(() => hoverRating = 0),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                (index <
-                                        (hoverRating > 0
-                                            ? hoverRating
-                                            : rating))
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                size: 48,
-                                color:
-                                    (index <
-                                        (hoverRating > 0
-                                            ? hoverRating
-                                            : rating))
-                                    ? Colors.amber
-                                    : Colors.grey.shade300,
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Champ de commentaire
-                    TextField(
-                      controller: commentController,
-                      textAlign: TextAlign.right,
-                      maxLines: 4,
-                      decoration: InputDecoration(
-                        hintText: '...اكتب تعليقك هنا',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: _primary,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Bouton Envoyer
-                    SizedBox(
-                      width: double.infinity,
+                    const SizedBox(width: 16),
+                    Expanded(
                       child: ElevatedButton(
-                        onPressed: rating > 0
-                            ? () {
-                                // Enregistrer la notation
-                                Navigator.pop(context);
-
-                                // Afficher un message de confirmation
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          'شكراً على تقييمك!',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Icon(
-                                          Icons.check_circle,
-                                          color: Colors.white,
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: Colors.green,
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    margin: const EdgeInsets.all(16),
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              }
-                            : null,
+                        onPressed: _isAddingToCart ? null : _addToCart,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: rating > 0
-                              ? _primary
-                              : Colors.grey.shade300,
+                          backgroundColor: _primary,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: rating > 0 ? 4 : 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: Text(
-                          'إرسال التقييم',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: rating > 0
-                                ? Colors.white
-                                : Colors.grey.shade500,
-                          ),
-                        ),
+                        child: _isAddingToCart
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Text('أضف للسلة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          );
-        },
-      );
-    },
-  );
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(Review review) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black12)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: List.generate(5, (i) => Icon(
+                  i < review.rating ? Icons.star : Icons.star_border,
+                  size: 16,
+                  color: Colors.amber,
+                )),
+              ),
+              Row(
+                children: [
+                  if (review.userImage.isNotEmpty)
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundImage: NetworkImage(review.userImage),
+                    )
+                  else
+                    const CircleAvatar(
+                      radius: 16,
+                      child: Icon(Icons.person, size: 16),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(review.userName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ],
+          ),
+          if (review.comment.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(review.comment, textAlign: TextAlign.right, style: const TextStyle(color: Colors.black87)),
+          ],
+          if (review.createdAt != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              _formatDate(review.createdAt!),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              textAlign: TextAlign.right,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    
+    if (diff.inDays == 0) return 'اليوم';
+    if (diff.inDays == 1) return 'أمس';
+    if (diff.inDays < 7) return 'منذ ${diff.inDays} أيام';
+    if (diff.inDays < 30) return 'منذ ${(diff.inDays / 7).floor()} أسابيع';
+    if (diff.inDays < 365) return 'منذ ${(diff.inDays / 30).floor()} أشهر';
+    return 'منذ ${(diff.inDays / 365).floor()} سنة';
+  }
 }
