@@ -131,7 +131,7 @@ git clone https://github.com/Amaal122/projet_mobile_diari.git
 cd projet_mobile_diari
 ```
 
-**⚠️ Important:** Firebase configuration files are not included in the repository for security reasons. Contact the project team to obtain the required configuration files before running the app.
+**⚠️ Important:** Firebase configuration files are not included in the repository for security reasons. they will be provided separately in the google drive link in the final submission.
 
 #### 2. Frontend Setup (Flutter)
 
@@ -152,7 +152,7 @@ flutter run
 **Configure Firebase for Flutter:**
 
 Firebase configuration files are required but not included in the repository for security.  
-**Required files (contact project team):**
+**Required files :**
 
 1. `google-services.json` → Place in: `android/app/`
 2. `GoogleService-Info.plist` → Place in: `ios/Runner/` (iOS only)
