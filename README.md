@@ -4,27 +4,6 @@
 
 ---
 
-## � Complete Documentation Index
-
-**All project documentation for university submission:**
-
-| Document | Description | Lines |
-|----------|-------------|-------|
-| **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** | Complete project overview & index | 600+ |
-| **[README.md](README.md)** | Setup instructions (this file) | 650+ |
-| **[UML_DIAGRAMS.md](UML_DIAGRAMS.md)** | 8 UML diagrams (PlantUML) | 550+ |
-| **[TECHNOLOGY_STACK.md](TECHNOLOGY_STACK.md)** | Tech stack documentation | 450+ |
-| **[MVP_FEATURES.md](MVP_FEATURES.md)** | Features (86% complete) | 400+ |
-| **[SWOT_ANALYSIS.md](SWOT_ANALYSIS.md)** | Business analysis | 450+ |
-| **[USER_PERSONAS.md](USER_PERSONAS.md)** | 5 user personas | 500+ |
-| **[PRESENTATION_OUTLINE.md](PRESENTATION_OUTLINE.md)** | Video slides (56 total) | 600+ |
-| **[backend/API_DOCUMENTATION.md](backend/API_DOCUMENTATION.md)** | API reference (55+ endpoints) | 800+ |
-| **[backend/BACKEND_ARCHITECTURE.md](backend/BACKEND_ARCHITECTURE.md)** | Architecture deep dive | 600+ |
-| **[backend/TESTING_REPORT.md](backend/TESTING_REPORT.md)** | Testing (95% coverage) | 400+ |
-
-📊 **Total: 6,000+ lines of documentation**
-
----
 
 ## �📱 About The Project
 
@@ -494,15 +473,11 @@ This project is developed as part of a university mobile development course.
 
 ## 👨‍💻 Development Team
 
-- Team members and roles to be listed here
-
----
-
-## 📞 Support
-
-For issues or questions:
-- Open an issue on GitHub
-- Contact: [your-email@example.com]
+- Amal BOUGUILA
+- Eslem BEN AMEUR
+- Fedi HAJ TAIEB
+- Mahmoud FOURATI
+- Nesrine HAMROUNI
 
 ---
 
